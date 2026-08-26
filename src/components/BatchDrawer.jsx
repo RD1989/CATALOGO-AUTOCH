@@ -17,7 +17,8 @@ import {
   Percent,
   Sparkles,
   AlertTriangle,
-  ShoppingBag
+  ShoppingBag,
+  Lock
 } from 'lucide-react';
 
 const MINIMUM_ORDER_UNITS = 10;
@@ -38,7 +39,6 @@ export default function BatchDrawer({
   const [cnpj, setCnpj] = useState('');
   const [cityState, setCityState] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
-  const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Cálculos consolidados do lote
@@ -53,6 +53,18 @@ export default function BatchDrawer({
   const remainingUnits = Math.max(0, MINIMUM_ORDER_UNITS - totalPieces);
   const progressPercent = Math.min(100, Math.round((totalPieces / MINIMUM_ORDER_UNITS) * 100));
 
+  // Validação em tempo real do preenchimento de TODOS os 5 dados cadastrais
+  const isFormComplete = (
+    buyerName.trim().length > 0 &&
+    companyName.trim().length > 0 &&
+    cnpj.trim().length > 0 &&
+    buyerPhone.trim().length > 0 &&
+    cityState.trim().length > 0
+  );
+
+  // O botão só fica clicável se bater o pedido mínimo E tiver todos os dados preenchidos
+  const isButtonEnabled = isMinimumReached && isFormComplete && batchItems.length > 0;
+
   // Desconto por volume (ex: 5% a partir de 50 peças / 5 caixas)
   const volumeDiscountPercent = totalPieces >= 50 ? 5 : totalPieces >= 30 ? 3 : 0;
   const discountAmount = (grossTotal * volumeDiscountPercent) / 100;
@@ -64,33 +76,10 @@ export default function BatchDrawer({
     onUpdateQty(item.id, item.selectedColor, Math.max(1, pieces));
   };
 
-  // Validar campos obrigatórios do cliente
-  const validateForm = () => {
-    const errors = {};
-    if (!buyerName.trim()) errors.buyerName = 'Informe o nome do responsável';
-    if (!companyName.trim()) errors.companyName = 'Informe o nome da empresa ou loja';
-    if (!cnpj.trim()) errors.cnpj = 'Informe o CNPJ ou CPF';
-    if (!buyerPhone.trim()) errors.buyerPhone = 'Informe o WhatsApp de contato';
-    if (!cityState.trim()) errors.cityState = 'Informe a cidade e UF de entrega';
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
   // Enviar Cotação Comercial Formatada via WhatsApp
   const handleSendQuotation = (e) => {
     e.preventDefault();
-    if (batchItems.length === 0) return;
-
-    if (!isMinimumReached) {
-      alert(`⚠️ O pedido mínimo de atacado é de ${MINIMUM_ORDER_UNITS} unidades no total. Adicione mais ${remainingUnits} unidade(s) de qualquer produto.`);
-      return;
-    }
-
-    if (!validateForm()) {
-      alert('⚠️ Por favor, preencha todos os dados obrigatórios do cliente antes de enviar a cotação.');
-      return;
-    }
+    if (!isButtonEnabled) return;
 
     setIsSubmitting(true);
 
@@ -352,14 +341,18 @@ export default function BatchDrawer({
 
           {/* FORMULÁRIO COM PREENCHIMENTO 100% OBRIGATÓRIO */}
           {batchItems.length > 0 && (
-            <form onSubmit={handleSendQuotation} className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4 space-y-3 pt-3 mt-4">
+            <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4 space-y-3 pt-3 mt-4">
               <div className="flex items-center justify-between border-b pb-2">
                 <h3 className="text-xs font-black text-slate-950 uppercase tracking-wider flex items-center gap-1.5">
                   <Building2 className="w-4 h-4 text-blue-700" />
                   <span>Dados Obrigatórios do Cliente</span>
                 </h3>
-                <span className="text-[10px] font-black text-rose-600 uppercase bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
-                  * Todos obrigatórios
+                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                  isFormComplete 
+                    ? 'bg-emerald-100 text-emerald-950 border-emerald-300' 
+                    : 'bg-rose-50 text-rose-600 border-rose-200'
+                }`}>
+                  {isFormComplete ? '✓ Preenchimento Completo' : '* Todos obrigatórios'}
                 </span>
               </div>
 
@@ -372,18 +365,10 @@ export default function BatchDrawer({
                     type="text"
                     required
                     value={buyerName}
-                    onChange={(e) => {
-                      setBuyerName(e.target.value);
-                      if (formErrors.buyerName) setFormErrors(prev => ({ ...prev, buyerName: null }));
-                    }}
+                    onChange={(e) => setBuyerName(e.target.value)}
                     placeholder="Ex: Carlos Silva"
-                    className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
-                      formErrors.buyerName ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
-                    }`}
+                    className="w-full bg-white border-2 border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors"
                   />
-                  {formErrors.buyerName && (
-                    <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.buyerName}</span>
-                  )}
                 </div>
 
                 <div>
@@ -394,18 +379,10 @@ export default function BatchDrawer({
                     type="text"
                     required
                     value={companyName}
-                    onChange={(e) => {
-                      setCompanyName(e.target.value);
-                      if (formErrors.companyName) setFormErrors(prev => ({ ...prev, companyName: null }));
-                    }}
+                    onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Ex: Mega Celulares Ltda"
-                    className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
-                      formErrors.companyName ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
-                    }`}
+                    className="w-full bg-white border-2 border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors"
                   />
-                  {formErrors.companyName && (
-                    <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.companyName}</span>
-                  )}
                 </div>
               </div>
 
@@ -418,18 +395,10 @@ export default function BatchDrawer({
                     type="text"
                     required
                     value={cnpj}
-                    onChange={(e) => {
-                      setCnpj(e.target.value);
-                      if (formErrors.cnpj) setFormErrors(prev => ({ ...prev, cnpj: null }));
-                    }}
+                    onChange={(e) => setCnpj(e.target.value)}
                     placeholder="00.000.000/0001-00"
-                    className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
-                      formErrors.cnpj ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
-                    }`}
+                    className="w-full bg-white border-2 border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors"
                   />
-                  {formErrors.cnpj && (
-                    <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.cnpj}</span>
-                  )}
                 </div>
 
                 <div>
@@ -440,18 +409,10 @@ export default function BatchDrawer({
                     type="text"
                     required
                     value={buyerPhone}
-                    onChange={(e) => {
-                      setBuyerPhone(e.target.value);
-                      if (formErrors.buyerPhone) setFormErrors(prev => ({ ...prev, buyerPhone: null }));
-                    }}
+                    onChange={(e) => setBuyerPhone(e.target.value)}
                     placeholder="(11) 99999-9999"
-                    className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
-                      formErrors.buyerPhone ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
-                    }`}
+                    className="w-full bg-white border-2 border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors"
                   />
-                  {formErrors.buyerPhone && (
-                    <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.buyerPhone}</span>
-                  )}
                 </div>
               </div>
 
@@ -463,25 +424,17 @@ export default function BatchDrawer({
                   type="text"
                   required
                   value={cityState}
-                  onChange={(e) => {
-                    setCityState(e.target.value);
-                    if (formErrors.cityState) setFormErrors(prev => ({ ...prev, cityState: null }));
-                  }}
+                  onChange={(e) => setCityState(e.target.value)}
                   placeholder="Ex: São Paulo / SP"
-                  className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
-                    formErrors.cityState ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
-                  }`}
+                  className="w-full bg-white border-2 border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors"
                 />
-                {formErrors.cityState && (
-                  <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.cityState}</span>
-                )}
               </div>
-            </form>
+            </div>
           )}
 
         </div>
 
-        {/* Rodapé com Totais & Botão Finalizar */}
+        {/* Rodapé com Totais & Botão com Trava de Validação */}
         {batchItems.length > 0 && (
           <div className="p-4 sm:p-5 border-t-2 border-slate-200 bg-white space-y-3">
             
@@ -506,22 +459,33 @@ export default function BatchDrawer({
               </div>
             </div>
 
+            {/* BOTÃO COM BLOQUEIO TOTAL ATÉ PREENCHIMENTO COMPLETO */}
             <button
               type="button"
               onClick={handleSendQuotation}
-              disabled={isSubmitting || !isMinimumReached}
-              className={`w-full text-sm sm:text-base font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] ${
-                isMinimumReached 
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 cursor-pointer' 
-                  : 'bg-slate-300 text-slate-600 cursor-not-allowed'
+              disabled={!isButtonEnabled || isSubmitting}
+              className={`w-full text-sm sm:text-base font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all ${
+                isButtonEnabled 
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 cursor-pointer active:scale-[0.98]' 
+                  : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-80 shadow-none'
               }`}
             >
-              <Send className="w-5 h-5" />
-              <span>
-                {isMinimumReached 
-                  ? `Solicitar Cotação no WhatsApp (${totalPieces} peças)` 
-                  : `Faltam ${remainingUnits} peças para o pedido mínimo`}
-              </span>
+              {isButtonEnabled ? (
+                <>
+                  <Send className="w-5 h-5" />
+                  <span>Solicitar Cotação no WhatsApp ({totalPieces} peças)</span>
+                </>
+              ) : !isMinimumReached ? (
+                <>
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <span>Faltam {remainingUnits} peças para o pedido mínimo (10 un)</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4 text-slate-600" />
+                  <span>Preencha todos os dados acima para liberar</span>
+                </>
+              )}
             </button>
 
           </div>
