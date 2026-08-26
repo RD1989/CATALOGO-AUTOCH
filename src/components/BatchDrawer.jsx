@@ -76,52 +76,57 @@ export default function BatchDrawer({
     onUpdateQty(item.id, item.selectedColor, Math.max(1, pieces));
   };
 
-  // Enviar Cotação Comercial Formatada via WhatsApp
+  // Enviar Cotação Comercial Formatada via WhatsApp (100% Compatível e Sem Caracteres Corrompidos)
   const handleSendQuotation = (e) => {
     e.preventDefault();
     if (!isButtonEnabled) return;
 
     setIsSubmitting(true);
 
-    // Mensagem Estruturada e Formatada com Emojis Profissionais para WhatsApp
-    let msg = `🛒 *SOLICITAÇÃO DE COTAÇÃO — ATACADO TECH B2B*\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    const linhaDivisoria = '--------------------------------------------------';
+
+    // Montagem da mensagem estruturada e padronizada para o WhatsApp
+    let msg = `*SOLICITACAO DE COTACAO ATACADO — ATACADO TECH*\n`;
+    msg += `${linhaDivisoria}\n\n`;
     
-    msg += `🏢 *DADOS DO COMPRADOR / REVENDA:*\n`;
-    msg += `• *Responsável:* ${buyerName.trim()}\n`;
+    msg += `*DADOS DO COMPRADOR / REVENDA:*\n`;
+    msg += `• *Responsavel:* ${buyerName.trim()}\n`;
     msg += `• *Empresa/Loja:* ${companyName.trim()}\n`;
     msg += `• *CNPJ/CPF:* ${cnpj.trim()}\n`;
     msg += `• *Destino (Cidade/UF):* ${cityState.trim()}\n`;
-    msg += `• *WhatsApp Comprador:* ${buyerPhone.trim()}\n`;
-    msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-    msg += `📦 *ITENS DO LOTE SOLICITADO:*\n\n`;
+    msg += `• *WhatsApp:* ${buyerPhone.trim()}\n\n`;
+    
+    msg += `${linhaDivisoria}\n`;
+    msg += `*ITENS DO LOTE SELECIONADO:*\n\n`;
 
     batchItems.forEach((item, index) => {
       const boxSize = item.minBatchQty || 10;
-      const boxesEquiv = (item.quantity / boxSize).toFixed(1).replace('.0', '');
+      const boxCount = item.quantity / boxSize;
+      const boxLabel = boxCount >= 1 && Number.isInteger(boxCount)
+        ? `(${boxCount} cx fechada${boxCount > 1 ? 's' : ''})`
+        : `(~${boxCount.toFixed(1)} cx de ${boxSize} un)`;
       const subtotal = item.price * item.quantity;
 
-      msg += `*${index + 1}. ${item.name}*\n`;
-      msg += `   ▪ *SKU:* \`${item.sku}\`\n`;
-      msg += `   ▪ *Cor:* ${item.selectedColor}\n`;
-      msg += `   ▪ *Quantidade:* *${item.quantity} unidades* (~${boxesEquiv} cx de ${boxSize} un)\n`;
-      msg += `   ▪ *Preço Unitário:* R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
-      msg += `   ▪ *Subtotal:* *R$ ${subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
+      msg += `${index + 1}. *${item.name}*\n`;
+      msg += `   - Codigo SKU: \`${item.sku}\`\n`;
+      msg += `   - Cor: ${item.selectedColor}\n`;
+      msg += `   - Quantidade: *${item.quantity} unidades* ${boxLabel}\n`;
+      msg += `   - Preco Unitario: R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+      msg += `   - Subtotal: *R$ ${subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
     });
 
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    msg += `📊 *RESUMO DO FATURAMENTO:*\n`;
-    msg += `• *Total de Peças no Pedido:* ${totalPieces} unidades\n`;
-    msg += `• *Subtotal Bruto:* R$ ${grossTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+    msg += `${linhaDivisoria}\n`;
+    msg += `*RESUMO FINANCEIRO DO PEDIDO:*\n`;
+    msg += `• *Total de Pecas:* ${totalPieces} unidades\n`;
+    msg += `• *Subtotal Tabela:* R$ ${grossTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
     
     if (volumeDiscountPercent > 0) {
       msg += `• *Desconto por Volume (${volumeDiscountPercent}%):* - R$ ${discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
     }
     
-    msg += `• *VALOR ESTIMADO DO PEDIDO:* *R$ ${netTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `_Solicito confirmação de pronta-entrega e dados para faturamento._`;
+    msg += `• *VALOR TOTAL ESTIMADO:* *R$ ${netTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
+    msg += `${linhaDivisoria}\n`;
+    msg += `_Solicito confirmacao de estoque a pronta-entrega e dados para faturamento._`;
 
     const encoded = encodeURIComponent(msg);
     const whatsappUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encoded}`;
