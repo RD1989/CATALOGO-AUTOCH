@@ -15,9 +15,9 @@ import {
   CheckCircle2,
   PackageCheck,
   Percent,
-  Sparkles
+  Sparkles,
+  Edit3
 } from 'lucide-react';
-import { api } from '../services/api';
 
 export default function BatchDrawer({
   isOpen,
@@ -47,77 +47,63 @@ export default function BatchDrawer({
     return acc + (item.price * item.quantity);
   }, 0);
 
-  // Desconto por volume (ex: 5% para pedidos com 5 caixas ou mais)
+  // Desconto por volume (ex: 5% para pedidos com 5 caixas ou mais, 3% para 3 caixas ou mais)
   const volumeDiscountPercent = totalBoxes >= 5 ? 5 : totalBoxes >= 3 ? 3 : 0;
   const discountAmount = (grossTotal * volumeDiscountPercent) / 100;
   const netTotal = grossTotal - discountAmount;
 
-  // Enviar Cotação Comercial via WhatsApp e persistir no banco de dados
-  const handleSendQuotation = async (e) => {
+  // Alteração direta da quantidade de caixas pelo input numérico
+  const handleBoxInputChange = (item, newBoxCount) => {
+    const boxes = parseInt(newBoxCount) || 1;
+    const minQty = item.minBatchQty || 10;
+    const finalQty = Math.max(minQty, boxes * minQty);
+    onUpdateQty(item.id, item.selectedColor, finalQty);
+  };
+
+  // Enviar Cotação Comercial Formatada via WhatsApp
+  const handleSendQuotation = (e) => {
     e.preventDefault();
     if (batchItems.length === 0) return;
 
     setIsSubmitting(true);
 
-    const quoteData = {
-      buyerName: buyerName || 'Comprador B2B',
-      company: companyName || 'Revenda Autorizada',
-      cnpj: cnpj || 'Não informado',
-      phone: buyerPhone || '5511999999999',
-      city: cityState.split('/')[0]?.trim() || 'São Paulo',
-      state: cityState.split('/')[1]?.trim() || 'SP',
-      items: batchItems.map(item => ({
-        sku: item.sku,
-        name: item.name,
-        color: item.selectedColor,
-        boxes: Math.round(item.quantity / item.minBatchQty),
-        units: item.quantity,
-        price: item.price,
-        subtotal: item.price * item.quantity
-      })),
-      totalBoxes,
-      totalUnits: totalPieces,
-      totalValue: netTotal
-    };
+    // Mensagem Estruturada e Formatada com Emojis Profissionais para WhatsApp
+    let msg = `🛒 *SOLICITAÇÃO DE COTAÇÃO — ATACADO TECH B2B*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    
+    msg += `🏢 *DADOS DO COMPRADOR / REVENDA:*\n`;
+    msg += `• *Responsável:* ${buyerName.trim() || 'Não informado'}\n`;
+    msg += `• *Empresa/Loja:* ${companyName.trim() || 'Revenda Autorizada'}\n`;
+    if (cnpj.trim()) msg += `• *CNPJ/CPF:* ${cnpj.trim()}\n`;
+    if (cityState.trim()) msg += `• *Destino:* ${cityState.trim()}\n`;
+    if (buyerPhone.trim()) msg += `• *WhatsApp:* ${buyerPhone.trim()}\n`;
+    msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-    try {
-      await api.createQuote(quoteData);
-    } catch (err) {
-      console.warn('Cotação enviada apenas via WhatsApp:', err);
-    }
-
-    // Mensagem Estruturada para WhatsApp
-    let msg = `*SOLICITAÇÃO DE COTAÇÃO ATACADO — ATACADO TECH*\n`;
-    msg += `--------------------------------------------------\n`;
-    msg += `*DADOS DO COMPRADOR*\n`;
-    msg += `• *Responsável:* ${buyerName || 'Não informado'}\n`;
-    msg += `• *Empresa / Loja:* ${companyName || 'Não informado'}\n`;
-    msg += `• *CNPJ / CPF:* ${cnpj || 'Não informado'}\n`;
-    msg += `• *Cidade/UF:* ${cityState || 'Não informado'}\n`;
-    msg += `• *Contato:* ${buyerPhone || 'Não informado'}\n`;
-    msg += `--------------------------------------------------\n`;
-    msg += `*PRODUTOS & CAIXAS MASTER SELECIONADAS:*\n\n`;
+    msg += `📦 *ITENS DO LOTE SOLICITADO:*\n\n`;
 
     batchItems.forEach((item, index) => {
-      const boxes = Math.round(item.quantity / item.minBatchQty);
+      const boxes = Math.round(item.quantity / (item.minBatchQty || 10));
       const subtotal = item.price * item.quantity;
-      msg += `${index + 1}. *${item.name}*\n`;
-      msg += `   • Código: \`${item.sku}\` | Cor: *${item.selectedColor}*\n`;
-      msg += `   • Volume: *${boxes} Caixa(s)* (${item.quantity} unidades)\n`;
-      msg += `   • Unitário: R$ ${item.price.toFixed(2)} | Subtotal: *R$ ${subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
+      msg += `*${index + 1}. ${item.name}*\n`;
+      msg += `   ▪ *SKU:* \`${item.sku}\`\n`;
+      msg += `   ▪ *Cor:* ${item.selectedColor}\n`;
+      msg += `   ▪ *Volume:* *${boxes} Caixa(s)* (${item.quantity} unidades no total)\n`;
+      msg += `   ▪ *Preço Unitário:* R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
+      msg += `   ▪ *Subtotal do Item:* *R$ ${subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
     });
 
-    msg += `--------------------------------------------------\n`;
-    msg += `*RESUMO DO FATURAMENTO:*\n`;
-    msg += `• *Total de Caixas Fechadas:* ${totalBoxes} caixas master\n`;
-    msg += `• *Total de Peças:* ${totalPieces} unidades\n`;
-    msg += `• *Valor Bruto da Tabela:* R$ ${grossTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    msg += `📊 *RESUMO DO FATURAMENTO:*\n`;
+    msg += `• *Volume Total:* ${totalBoxes} caixas fechadas (${totalPieces} peças)\n`;
+    msg += `• *Subtotal Bruto:* R$ ${grossTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+    
     if (volumeDiscountPercent > 0) {
       msg += `• *Desconto por Volume (${volumeDiscountPercent}%):* - R$ ${discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
     }
-    msg += `• *VALOR ESTIMADO DO LOTE:* *R$ ${netTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n`;
-    msg += `--------------------------------------------------\n`;
-    msg += `_Solicito confirmação de estoque físico e dados para emissão de nota e faturamento._`;
+    
+    msg += `• *VALOR ESTIMADO DO PEDIDO:* *R$ ${netTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `_Solicito a confirmação de disponibilidade de pronta-entrega e os dados para emissão de nota fiscal e envio._`;
 
     const encoded = encodeURIComponent(msg);
     const whatsappUrl = `https://wa.me/5511999999999?text=${encoded}`;
@@ -144,7 +130,7 @@ export default function BatchDrawer({
                 Meu Lote de Compras
               </h2>
               <span className="text-xs text-slate-300 font-bold">
-                {totalBoxes} caixas master • {totalPieces} peças
+                {totalBoxes} {totalBoxes === 1 ? 'caixa master' : 'caixas master'} • {totalPieces} peças
               </span>
             </div>
           </div>
@@ -172,7 +158,7 @@ export default function BatchDrawer({
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {batchItems.map((item) => {
                 const boxCount = Math.max(1, Math.round(item.quantity / (item.minBatchQty || 10)));
                 const itemSubtotal = item.price * item.quantity;
@@ -180,11 +166,12 @@ export default function BatchDrawer({
                 return (
                   <div 
                     key={`${item.id}-${item.selectedColor}`}
-                    className="bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3"
+                    className="bg-white border-2 border-slate-300 rounded-2xl p-4 shadow-sm space-y-3"
                   >
+                    {/* Topo do Card do Item: Foto + Dados Principais */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0">
+                        <div className="w-14 h-14 rounded-xl bg-slate-50 border-2 border-slate-200 p-1 flex items-center justify-center shrink-0">
                           <img src={item.image} alt={item.name} className="max-h-full max-w-full object-contain" />
                         </div>
                         <div>
@@ -195,7 +182,7 @@ export default function BatchDrawer({
                             {item.name}
                           </h4>
                           <span className="text-xs font-bold text-slate-600">
-                            Cor selecionada: <strong className="text-slate-950 font-black">{item.selectedColor}</strong>
+                            Cor: <strong className="text-slate-950 font-black">{item.selectedColor}</strong>
                           </span>
                         </div>
                       </div>
@@ -210,11 +197,16 @@ export default function BatchDrawer({
                       </button>
                     </div>
 
-                    {/* Controles de Quantidade em Caixa Master Fechada */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                    {/* Controles Avançados de Quantidade de Caixas (Botões +/- e Input Numérico Direto) */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t-2 border-slate-100 text-xs">
+                      
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-600">Caixas Master:</span>
-                        <div className="flex items-center bg-slate-100 border-2 border-slate-300 rounded-xl">
+                        <span className="font-black text-slate-700 uppercase tracking-wider text-[10px]">
+                          Caixas Master:
+                        </span>
+                        
+                        <div className="flex items-center bg-slate-100 border-2 border-slate-300 rounded-xl overflow-hidden shadow-2xs">
+                          {/* Botão Diminuir 1 Caixa */}
                           <button
                             type="button"
                             onClick={() => {
@@ -224,35 +216,49 @@ export default function BatchDrawer({
                                 onRemoveItem(item.id, item.selectedColor);
                               }
                             }}
-                            className="p-2 text-slate-700 hover:text-slate-950 hover:bg-slate-200 rounded-l-xl transition-colors"
+                            className="p-2 text-slate-700 hover:text-slate-950 hover:bg-slate-200 transition-colors"
                             title="Diminuir 1 Caixa"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
 
-                          <span className="px-3 font-black text-slate-950 text-xs">
-                            {boxCount} cx ({item.quantity} un)
-                          </span>
+                          {/* Input Numérico Editável Direto */}
+                          <input
+                            type="number"
+                            min="1"
+                            max="999"
+                            value={boxCount}
+                            onChange={(e) => handleBoxInputChange(item, e.target.value)}
+                            className="w-12 text-center font-black text-slate-950 text-xs bg-white py-1 outline-none border-x border-slate-300"
+                            title="Digite a quantidade de caixas"
+                          />
 
+                          {/* Botão Adicionar 1 Caixa */}
                           <button
                             type="button"
                             onClick={() => {
                               onUpdateQty(item.id, item.selectedColor, item.quantity + item.minBatchQty);
                             }}
-                            className="p-2 text-slate-700 hover:text-slate-950 hover:bg-slate-200 rounded-r-xl transition-colors"
+                            className="p-2 text-slate-700 hover:text-slate-950 hover:bg-slate-200 transition-colors"
                             title="Adicionar 1 Caixa"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
+
+                        <span className="text-[11px] text-slate-600 font-bold">
+                          ({item.quantity} un.)
+                        </span>
                       </div>
 
-                      <div className="text-right">
+                      {/* Subtotal Calculado */}
+                      <div className="text-right sm:text-right">
                         <span className="text-[10px] text-slate-500 font-bold block">Subtotal:</span>
-                        <span className="text-sm font-black text-slate-950">
+                        <span className="text-sm sm:text-base font-black text-slate-950">
                           R$ {itemSubtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
+
                     </div>
                   </div>
                 );
@@ -260,10 +266,10 @@ export default function BatchDrawer({
             </div>
           )}
 
-          {/* Dados do Comprador para a Cotação */}
+          {/* Dados do Comprador para a Cotação Formatada */}
           {batchItems.length > 0 && (
-            <form onSubmit={handleSendQuotation} className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-3 pt-3 mt-4">
-              <h3 className="text-xs font-black text-slate-950 uppercase tracking-wider flex items-center gap-1.5">
+            <form onSubmit={handleSendQuotation} className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4 space-y-3 pt-3 mt-4">
+              <h3 className="text-xs font-black text-slate-950 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
                 <Building2 className="w-4 h-4 text-blue-700" />
                 <span>Dados do Comprador / Revendedor</span>
               </h3>
@@ -277,7 +283,7 @@ export default function BatchDrawer({
                     value={buyerName}
                     onChange={(e) => setBuyerName(e.target.value)}
                     placeholder="Ex: Carlos Silva"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
                   />
                 </div>
 
@@ -289,7 +295,7 @@ export default function BatchDrawer({
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Ex: Mega Celulares Ltda"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
@@ -302,7 +308,7 @@ export default function BatchDrawer({
                     value={cnpj}
                     onChange={(e) => setCnpj(e.target.value)}
                     placeholder="00.000.000/0001-00"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
                   />
                 </div>
 
@@ -314,7 +320,7 @@ export default function BatchDrawer({
                     value={buyerPhone}
                     onChange={(e) => setBuyerPhone(e.target.value)}
                     placeholder="(11) 99999-9999"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
@@ -326,7 +332,7 @@ export default function BatchDrawer({
                   value={cityState}
                   onChange={(e) => setCityState(e.target.value)}
                   placeholder="Ex: São Paulo / SP"
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                  className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
                 />
               </div>
             </form>
@@ -340,13 +346,13 @@ export default function BatchDrawer({
             
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-slate-600 font-bold">
-                <span>Subtotal Bruto:</span>
+                <span>Subtotal Bruto ({totalBoxes} caixas):</span>
                 <span>R$ {grossTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
 
               {volumeDiscountPercent > 0 && (
                 <div className="flex justify-between text-emerald-700 font-black">
-                  <span>Desconto Volume ({volumeDiscountPercent}%):</span>
+                  <span>Desconto por Volume ({volumeDiscountPercent}%):</span>
                   <span>- R$ {discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
@@ -366,7 +372,7 @@ export default function BatchDrawer({
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-base font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]"
             >
               <Send className="w-5 h-5" />
-              <span>Solicitar Cotação no WhatsApp ({totalBoxes} caixas)</span>
+              <span>Solicitar Cotação no WhatsApp ({totalBoxes} {totalBoxes === 1 ? 'caixa' : 'caixas'})</span>
             </button>
 
           </div>
