@@ -81,7 +81,7 @@ export default function Header({
             </div>
           </div>
 
-          {/* Menu Dropdown de Seções (Desktop) */}
+          {/* Menu Dropdown de Seções (Desktop) com a maior categoria primeiro */}
           <div className="relative hidden lg:block">
             <button
               type="button"
@@ -99,8 +99,8 @@ export default function Header({
               >
                 {[
                   { id: 'all', label: 'Catálogo Geral (Todos)', count: '10 modelos' },
-                  { id: 'tablets-infantis', label: 'Tablets Infantis', count: '2 modelos' },
                   { id: 'tablets-profissionais', label: 'Tablets Profissionais', count: '6 modelos' },
+                  { id: 'tablets-infantis', label: 'Tablets Infantis', count: '2 modelos' },
                   { id: 'power-banks', label: 'Power Banks & Acessórios', count: '2 modelos' },
                 ].map(cat => (
                   <button

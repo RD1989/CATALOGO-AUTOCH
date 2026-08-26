@@ -1,15 +1,235 @@
 // Catálogo Oficial de Eletrônicos B2B Atacado
-// Extraído diretamente das especificações técnicas e regras do CATALOGO AUTOCH.pdf
+// Ordenado com a categoria com mais produtos em primeiro lugar
 
 export const CATEGORIES = [
   { id: 'all', name: 'Catálogo Geral (Todos)', count: 10 },
-  { id: 'tablets-infantis', name: 'Tablets Infantis', count: 2 },
   { id: 'tablets-profissionais', name: 'Tablets Profissionais', count: 6 },
+  { id: 'tablets-infantis', name: 'Tablets Infantis', count: 2 },
   { id: 'power-banks', name: 'Power Banks & Acessórios', count: 2 }
 ];
 
 export const PRODUCTS = [
-  // --- 1. TABLETS INFANTIS ---
+  // ==========================================
+  // 1. TABLETS PROFISSIONAIS (CATEGORIA COM MAIOR NÚMERO DE PRODUTOS - 6 MODELOS)
+  // ==========================================
+  {
+    id: 'stab-9-pro',
+    sku: 'TB-STAB9-PRO',
+    name: 'STab 9 Pro — ATACADO',
+    category: 'tablets-profissionais',
+    categoryName: 'Tablets Profissionais',
+    price: 550.00,
+    minBatchQty: 10,
+    boxUnitLabel: '1 Caixa Fechada (10 un.)',
+    condition: 'Mais vendidos',
+    network: '5G',
+    status: 'available',
+    statusLabel: 'Em estoque pronta-entrega',
+    stockQty: 320,
+    image: '/images/products/stab-9-pro.jpg',
+    colors: [
+      { name: 'Cinza', hex: '#9CA3AF' },
+      { name: 'Azul', hex: '#3B82F6' },
+      { name: 'Vermelho', hex: '#EF4444' }
+    ],
+    badges: ['Caixa 10 PCS', '8GB + 512GB', 'Tela 11" 2K'],
+    specs: {
+      tela: '11.0" 2K IPS Crystal Display',
+      armazenamento: '512GB ROM Alta Velocidade',
+      ram: '8GB RAM LPDDR4X',
+      bateria: '8.500 mAh',
+      processador: 'Octa-Core 2.4GHz High Performance',
+      sistema: 'Android 14 Edição Corporativa',
+      conectividade: '5G Ultra Speed + Wi-Fi 6 + Bluetooth 5.2'
+    },
+    bulletPoints: [
+      'Caixa Master com 10 unidades com kit completo de fábrica',
+      'Armazenamento massivo de 512GB com 8GB de RAM',
+      'Tela grande de 11 polegadas com bordas ultrafinas'
+    ]
+  },
+  {
+    id: 'a-tab8',
+    sku: 'TB-ATAB8-PRO',
+    name: 'A TAB8 — ATACADO',
+    category: 'tablets-profissionais',
+    categoryName: 'Tablets Profissionais',
+    price: 540.00,
+    minBatchQty: 20,
+    boxUnitLabel: '1 Caixa Fechada (20 un.)',
+    condition: 'Mais vendidos',
+    network: '5G',
+    status: 'available',
+    statusLabel: 'Em estoque pronta-entrega',
+    stockQty: 360,
+    image: '/images/products/a-tab8.jpg',
+    colors: [
+      { name: 'Cinza', hex: '#9CA3AF' },
+      { name: 'Azul', hex: '#3B82F6' },
+      { name: 'Ouro', hex: '#EAB308' }
+    ],
+    badges: ['Caixa 20 PCS', '5G Dual SIM', '8.4" Portátil'],
+    specs: {
+      tela: '8.4" IPS Full HD+',
+      armazenamento: '256GB ROM',
+      ram: '8GB RAM',
+      bateria: '6.500 mAh com Carga Rápida 18W',
+      processador: 'Octa-Core 2.2GHz High Performance',
+      sistema: 'Android 14 com Suporte a Multi-Janelas',
+      conectividade: '5G Standalone + 4G LTE Dual SIM + Wi-Fi 6'
+    },
+    bulletPoints: [
+      'Caixa Master com 20 unidades lacradas',
+      'Corpo metálico slim de 7.5mm com pegada ergonômica',
+      'Excelente aceitação em revendas corporativas e equipes de campo'
+    ]
+  },
+  {
+    id: 'realmax',
+    sku: 'TB-REALMAX-PREMIUM',
+    name: 'RealMax — ATACADO',
+    category: 'tablets-profissionais',
+    categoryName: 'Tablets Profissionais',
+    price: 610.00,
+    minBatchQty: 10,
+    boxUnitLabel: '1 Caixa Fechada (10 un.)',
+    condition: 'Mais vendidos',
+    network: '5G',
+    status: 'available',
+    statusLabel: 'Em estoque pronta-entrega',
+    stockQty: 150,
+    image: '/images/products/realmax.jpg',
+    colors: [
+      { name: 'Cinza', hex: '#9CA3AF' }
+    ],
+    badges: ['Caixa 10 PCS', 'Corpo Alumínio', '12GB RAM Otimizada'],
+    specs: {
+      tela: '11.0" 2.5K Ultra Retina Display',
+      armazenamento: '512GB ROM UFS 2.2',
+      ram: '12GB RAM (8GB Físico + 4GB Expansível)',
+      bateria: '8.800 mAh com Carregamento Rápido 25W',
+      processador: 'Octa-Core 2.6GHz Max Clock',
+      sistema: 'Android 14 Pro Edition',
+      conectividade: '5G Standalone + Wi-Fi 6E + Bluetooth 5.3'
+    },
+    bulletPoints: [
+      'Caixa Master com 10 unidades com acabamento topo de linha',
+      'Chassi unibody em alumínio aeronáutico escovado',
+      'Modelo premium mais procurado por clientes corporativos'
+    ]
+  },
+  {
+    id: 's-t2',
+    sku: 'TB-ST2-ULTRA',
+    name: 'S-T2 — ATACADO',
+    category: 'tablets-profissionais',
+    categoryName: 'Tablets Profissionais',
+    price: 560.00,
+    minBatchQty: 10,
+    boxUnitLabel: '1 Caixa Fechada (10 un.)',
+    condition: 'Lançamento',
+    network: '5G',
+    status: 'available',
+    statusLabel: 'Em estoque pronta-entrega',
+    stockQty: 190,
+    image: '/images/products/s-t2.jpg',
+    colors: [
+      { name: 'Cinza', hex: '#9CA3AF' },
+      { name: 'Ouro', hex: '#EAB308' },
+      { name: 'Vermelho', hex: '#EF4444' }
+    ],
+    badges: ['Caixa 10 PCS', 'Estrutura Reforçada', 'Bateria 8.000mAh'],
+    specs: {
+      tela: '10.5" 2K Ultra Retina (2000x1200)',
+      armazenamento: '256GB ROM',
+      ram: '8GB RAM',
+      bateria: '8.000 mAh com Carregamento Rápido 20W',
+      processador: 'Octa-Core 2.4GHz',
+      sistema: 'Android 14 Pro',
+      conectividade: '5G Dual SIM + Wi-Fi 6'
+    },
+    bulletPoints: [
+      'Caixa Master com 10 unidades',
+      'Chassi com reforço perimetral para maior durabilidade',
+      'Bateria de 8.000 mAh que suporta jornadas intensivas de trabalho'
+    ]
+  },
+  {
+    id: 'stab-max',
+    sku: 'TB-STAB-MAX',
+    name: 'STab-MAX — ATACADO',
+    category: 'tablets-profissionais',
+    categoryName: 'Tablets Profissionais',
+    price: 590.00,
+    minBatchQty: 10,
+    boxUnitLabel: '1 Caixa Fechada (10 un.)',
+    condition: 'Lançamento',
+    network: '5G',
+    status: 'available',
+    statusLabel: 'Em estoque pronta-entrega',
+    stockQty: 180,
+    image: '/images/products/stab-max.jpg',
+    colors: [
+      { name: 'Cinza', hex: '#9CA3AF' },
+      { name: 'Ouro', hex: '#EAB308' },
+      { name: 'Vermelho', hex: '#EF4444' }
+    ],
+    badges: ['Caixa 10 PCS', 'Tela 11.6"', 'Bateria 9.000mAh'],
+    specs: {
+      tela: '11.6" Full HD+ IPS Vivid Color',
+      armazenamento: '512GB ROM',
+      ram: '8GB RAM',
+      bateria: '9.000 mAh Ultra Battery',
+      processador: 'Octa-Core 2.5GHz Flagship',
+      sistema: 'Android 14',
+      conectividade: '5G Dual SIM + Wi-Fi 6'
+    },
+    bulletPoints: [
+      'Caixa Master com 10 unidades lacradas',
+      'Tela gigante de 11.6 polegadas perfeita para PDVs e escritórios',
+      'Bateria monstro de 9.000 mAh com autonomia para até 2 dias'
+    ]
+  },
+  {
+    id: 'se-pro',
+    sku: 'TB-SEPRO-5G',
+    name: 'SE PRO — ATACADO',
+    category: 'tablets-profissionais',
+    categoryName: 'Tablets Profissionais',
+    price: 480.00,
+    minBatchQty: 10,
+    boxUnitLabel: '1 Caixa Fechada (10 un.)',
+    condition: 'Promoção',
+    network: '5G',
+    status: 'available',
+    statusLabel: 'Em estoque pronta-entrega',
+    stockQty: 210,
+    image: '/images/products/se-pro.jpg',
+    colors: [
+      { name: 'Cinza', hex: '#9CA3AF' },
+      { name: 'Azul', hex: '#3B82F6' },
+      { name: 'Ouro', hex: '#EAB308' }
+    ],
+    badges: ['Caixa 10 PCS', 'Custo-Benefício 5G', 'Android 14'],
+    specs: {
+      tela: '10.1" IPS HD 1280x800',
+      armazenamento: '128GB ROM',
+      ram: '6GB RAM',
+      bateria: '7.000 mAh',
+      processador: 'Octa-Core 2.0GHz',
+      sistema: 'Android 14',
+      conectividade: '5G + 4G Dual SIM + Wi-Fi Dual Band'
+    },
+    bulletPoints: [
+      'Caixa Master com 10 unidades com acessórios inclusos',
+      'Melhor relação custo-benefício para tablets de 10 polegadas',
+      'Alta liquidez e giro rápido no balcão de vendas'
+    ]
+  },
+
+  // ==========================================
+  // 2. TABLETS INFANTIS (2 MODELOS)
+  // ==========================================
   {
     id: 'q39-pro',
     sku: 'TB-Q39-PRO',
@@ -83,223 +303,9 @@ export const PRODUCTS = [
     ]
   },
 
-  // --- 2. TABLETS PROFISSIONAIS & PRODUTIVIDADE ---
-  {
-    id: 'a-tab8',
-    sku: 'TB-ATAB8-PRO',
-    name: 'A TAB8 — ATACADO',
-    category: 'tablets-profissionais',
-    categoryName: 'Tablets Profissionais',
-    price: 540.00,
-    minBatchQty: 20,
-    boxUnitLabel: '1 Caixa Fechada (20 un.)',
-    condition: 'Mais vendidos',
-    network: '5G',
-    status: 'available',
-    statusLabel: 'Em estoque pronta-entrega',
-    stockQty: 360,
-    image: '/images/products/a-tab8.jpg',
-    colors: [
-      { name: 'Cinza', hex: '#9CA3AF' },
-      { name: 'Azul', hex: '#3B82F6' },
-      { name: 'Ouro', hex: '#EAB308' }
-    ],
-    badges: ['Caixa 20 PCS', '5G Dual SIM', '8.4" Portátil'],
-    specs: {
-      tela: '8.4" IPS Full HD+',
-      armazenamento: '256GB ROM',
-      ram: '8GB RAM',
-      bateria: '6.500 mAh com Carga Rápida 18W',
-      processador: 'Octa-Core 2.2GHz High Performance',
-      sistema: 'Android 14 com Suporte a Multi-Janelas',
-      conectividade: '5G Standalone + 4G LTE Dual SIM + Wi-Fi 6'
-    },
-    bulletPoints: [
-      'Caixa Master com 20 unidades lacradas',
-      'Corpo metálico slim de 7.5mm com pegada ergonômica',
-      'Excelente aceitação em revendas corporativas e equipes de campo'
-    ]
-  },
-  {
-    id: 'se-pro',
-    sku: 'TB-SEPRO-5G',
-    name: 'SE PRO — ATACADO',
-    category: 'tablets-profissionais',
-    categoryName: 'Tablets Profissionais',
-    price: 480.00,
-    minBatchQty: 10,
-    boxUnitLabel: '1 Caixa Fechada (10 un.)',
-    condition: 'Promoção',
-    network: '5G',
-    status: 'available',
-    statusLabel: 'Em estoque pronta-entrega',
-    stockQty: 210,
-    image: '/images/products/se-pro.jpg',
-    colors: [
-      { name: 'Cinza', hex: '#9CA3AF' },
-      { name: 'Azul', hex: '#3B82F6' },
-      { name: 'Ouro', hex: '#EAB308' }
-    ],
-    badges: ['Caixa 10 PCS', 'Custo-Benefício 5G', 'Android 14'],
-    specs: {
-      tela: '10.1" IPS HD 1280x800',
-      armazenamento: '128GB ROM',
-      ram: '6GB RAM',
-      bateria: '7.000 mAh',
-      processador: 'Octa-Core 2.0GHz',
-      sistema: 'Android 14',
-      conectividade: '5G + 4G Dual SIM + Wi-Fi Dual Band'
-    },
-    bulletPoints: [
-      'Caixa Master com 10 unidades com acessórios inclusos',
-      'Melhor relação custo-benefício para tablets de 10 polegadas',
-      'Alta liquidez e giro rápido no balcão de vendas'
-    ]
-  },
-  {
-    id: 's-t2',
-    sku: 'TB-ST2-ULTRA',
-    name: 'S-T2 — ATACADO',
-    category: 'tablets-profissionais',
-    categoryName: 'Tablets Profissionais',
-    price: 560.00,
-    minBatchQty: 10,
-    boxUnitLabel: '1 Caixa Fechada (10 un.)',
-    condition: 'Lançamento',
-    network: '5G',
-    status: 'available',
-    statusLabel: 'Em estoque pronta-entrega',
-    stockQty: 190,
-    image: '/images/products/s-t2.jpg',
-    colors: [
-      { name: 'Cinza', hex: '#9CA3AF' },
-      { name: 'Ouro', hex: '#EAB308' },
-      { name: 'Vermelho', hex: '#EF4444' }
-    ],
-    badges: ['Caixa 10 PCS', 'Estrutura Reforçada', 'Bateria 8.000mAh'],
-    specs: {
-      tela: '10.5" 2K Ultra Retina (2000x1200)',
-      armazenamento: '256GB ROM',
-      ram: '8GB RAM',
-      bateria: '8.000 mAh com Carregamento Rápido 20W',
-      processador: 'Octa-Core 2.4GHz',
-      sistema: 'Android 14 Pro',
-      conectividade: '5G Dual SIM + Wi-Fi 6'
-    },
-    bulletPoints: [
-      'Caixa Master com 10 unidades',
-      'Chassi com reforço perimetral para maior durabilidade',
-      'Bateria de 8.000 mAh que suporta jornadas intensivas de trabalho'
-    ]
-  },
-  {
-    id: 'stab-9-pro',
-    sku: 'TB-STAB9-PRO',
-    name: 'STab 9 Pro — ATACADO',
-    category: 'tablets-profissionais',
-    categoryName: 'Tablets Profissionais',
-    price: 550.00,
-    minBatchQty: 10,
-    boxUnitLabel: '1 Caixa Fechada (10 un.)',
-    condition: 'Mais vendidos',
-    network: '5G',
-    status: 'available',
-    statusLabel: 'Em estoque pronta-entrega',
-    stockQty: 320,
-    image: '/images/products/stab-9-pro.jpg',
-    colors: [
-      { name: 'Cinza', hex: '#9CA3AF' },
-      { name: 'Azul', hex: '#3B82F6' },
-      { name: 'Vermelho', hex: '#EF4444' }
-    ],
-    badges: ['Caixa 10 PCS', '8GB + 512GB', 'Tela 11" 2K'],
-    specs: {
-      tela: '11.0" 2K IPS Crystal Display',
-      armazenamento: '512GB ROM Alta Velocidade',
-      ram: '8GB RAM LPDDR4X',
-      bateria: '8.500 mAh',
-      processador: 'Octa-Core 2.4GHz High Performance',
-      sistema: 'Android 14 Edição Corporativa',
-      conectividade: '5G Ultra Speed + Wi-Fi 6 + Bluetooth 5.2'
-    },
-    bulletPoints: [
-      'Caixa Master com 10 unidades com kit completo de fábrica',
-      'Armazenamento massivo de 512GB com 8GB de RAM',
-      'Tela grande de 11 polegadas com bordas ultrafinas'
-    ]
-  },
-  {
-    id: 'stab-max',
-    sku: 'TB-STAB-MAX',
-    name: 'STab-MAX — ATACADO',
-    category: 'tablets-profissionais',
-    categoryName: 'Tablets Profissionais',
-    price: 590.00,
-    minBatchQty: 10,
-    boxUnitLabel: '1 Caixa Fechada (10 un.)',
-    condition: 'Lançamento',
-    network: '5G',
-    status: 'available',
-    statusLabel: 'Em estoque pronta-entrega',
-    stockQty: 180,
-    image: '/images/products/stab-max.jpg',
-    colors: [
-      { name: 'Cinza', hex: '#9CA3AF' },
-      { name: 'Ouro', hex: '#EAB308' },
-      { name: 'Vermelho', hex: '#EF4444' }
-    ],
-    badges: ['Caixa 10 PCS', 'Tela 11.6"', 'Bateria 9.000mAh'],
-    specs: {
-      tela: '11.6" Full HD+ IPS Vivid Color',
-      armazenamento: '512GB ROM',
-      ram: '8GB RAM',
-      bateria: '9.000 mAh Ultra Battery',
-      processador: 'Octa-Core 2.5GHz Flagship',
-      sistema: 'Android 14',
-      conectividade: '5G Dual SIM + Wi-Fi 6'
-    },
-    bulletPoints: [
-      'Caixa Master com 10 unidades lacradas',
-      'Tela gigante de 11.6 polegadas perfeita para PDVs e escritórios',
-      'Bateria monstro de 9.000 mAh com autonomia para até 2 dias'
-    ]
-  },
-  {
-    id: 'realmax',
-    sku: 'TB-REALMAX-PREMIUM',
-    name: 'RealMax — ATACADO',
-    category: 'tablets-profissionais',
-    categoryName: 'Tablets Profissionais',
-    price: 610.00,
-    minBatchQty: 10,
-    boxUnitLabel: '1 Caixa Fechada (10 un.)',
-    condition: 'Mais vendidos',
-    network: '5G',
-    status: 'available',
-    statusLabel: 'Em estoque pronta-entrega',
-    stockQty: 150,
-    image: '/images/products/realmax.jpg',
-    colors: [
-      { name: 'Cinza', hex: '#9CA3AF' }
-    ],
-    badges: ['Caixa 10 PCS', 'Corpo Alumínio', '12GB RAM Otimizada'],
-    specs: {
-      tela: '11.0" 2.5K Ultra Retina Display',
-      armazenamento: '512GB ROM UFS 2.2',
-      ram: '12GB RAM (8GB Físico + 4GB Expansível)',
-      bateria: '8.800 mAh com Carregamento Rápido 25W',
-      processador: 'Octa-Core 2.6GHz Max Clock',
-      sistema: 'Android 14 Pro Edition',
-      conectividade: '5G Standalone + Wi-Fi 6E + Bluetooth 5.3'
-    },
-    bulletPoints: [
-      'Caixa Master com 10 unidades com acabamento topo de linha',
-      'Chassi unibody em alumínio aeronáutico escovado',
-      'Modelo premium mais procurado por clientes corporativos'
-    ]
-  },
-
-  // --- 3. POWER BANKS & CARREGAMENTO RÁPIDO ---
+  // ==========================================
+  // 3. POWER BANKS & CARREGAMENTO RÁPIDO (2 MODELOS)
+  // ==========================================
   {
     id: 'pb-p100',
     sku: 'PB-P100-20K',
