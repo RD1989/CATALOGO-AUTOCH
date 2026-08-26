@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 const MINIMUM_ORDER_UNITS = 10;
+const STORE_WHATSAPP_NUMBER = '5511986807777';
 
 export default function BatchDrawer({
   isOpen,
@@ -37,15 +38,11 @@ export default function BatchDrawer({
   const [cnpj, setCnpj] = useState('');
   const [cityState, setCityState] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Cálculos consolidados do lote
   const totalPieces = batchItems.reduce((acc, item) => acc + item.quantity, 0);
-
-  const totalBoxes = batchItems.reduce((acc, item) => {
-    const boxSize = item.minBatchQty || 10;
-    return acc + (item.quantity / boxSize);
-  }, 0);
 
   const grossTotal = batchItems.reduce((acc, item) => {
     return acc + (item.price * item.quantity);
@@ -67,6 +64,19 @@ export default function BatchDrawer({
     onUpdateQty(item.id, item.selectedColor, Math.max(1, pieces));
   };
 
+  // Validar campos obrigatórios do cliente
+  const validateForm = () => {
+    const errors = {};
+    if (!buyerName.trim()) errors.buyerName = 'Informe o nome do responsável';
+    if (!companyName.trim()) errors.companyName = 'Informe o nome da empresa ou loja';
+    if (!cnpj.trim()) errors.cnpj = 'Informe o CNPJ ou CPF';
+    if (!buyerPhone.trim()) errors.buyerPhone = 'Informe o WhatsApp de contato';
+    if (!cityState.trim()) errors.cityState = 'Informe a cidade e UF de entrega';
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   // Enviar Cotação Comercial Formatada via WhatsApp
   const handleSendQuotation = (e) => {
     e.preventDefault();
@@ -77,6 +87,11 @@ export default function BatchDrawer({
       return;
     }
 
+    if (!validateForm()) {
+      alert('⚠️ Por favor, preencha todos os dados obrigatórios do cliente antes de enviar a cotação.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     // Mensagem Estruturada e Formatada com Emojis Profissionais para WhatsApp
@@ -84,11 +99,11 @@ export default function BatchDrawer({
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     msg += `🏢 *DADOS DO COMPRADOR / REVENDA:*\n`;
-    msg += `• *Responsável:* ${buyerName.trim() || 'Não informado'}\n`;
-    msg += `• *Empresa/Loja:* ${companyName.trim() || 'Revenda Autorizada'}\n`;
-    if (cnpj.trim()) msg += `• *CNPJ/CPF:* ${cnpj.trim()}\n`;
-    if (cityState.trim()) msg += `• *Destino:* ${cityState.trim()}\n`;
-    if (buyerPhone.trim()) msg += `• *WhatsApp:* ${buyerPhone.trim()}\n`;
+    msg += `• *Responsável:* ${buyerName.trim()}\n`;
+    msg += `• *Empresa/Loja:* ${companyName.trim()}\n`;
+    msg += `• *CNPJ/CPF:* ${cnpj.trim()}\n`;
+    msg += `• *Destino (Cidade/UF):* ${cityState.trim()}\n`;
+    msg += `• *WhatsApp Comprador:* ${buyerPhone.trim()}\n`;
     msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     msg += `📦 *ITENS DO LOTE SOLICITADO:*\n\n`;
@@ -120,7 +135,7 @@ export default function BatchDrawer({
     msg += `_Solicito confirmação de pronta-entrega e dados para faturamento._`;
 
     const encoded = encodeURIComponent(msg);
-    const whatsappUrl = `https://wa.me/5511999999999?text=${encoded}`;
+    const whatsappUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encoded}`;
 
     window.open(whatsappUrl, '_blank');
     setIsSubmitting(false);
@@ -259,7 +274,7 @@ export default function BatchDrawer({
                       </button>
                     </div>
 
-                    {/* CONTROLES FLEXÍVEIS: UNIDADES AVULSAS + ATALHO DE CAIXA */}
+                    {/* CONTROLES FLEXÍVEIS */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t-2 border-slate-100 text-xs">
                       
                       <div className="flex items-center gap-2.5">
@@ -267,7 +282,6 @@ export default function BatchDrawer({
                           Quantidade:
                         </span>
                         
-                        {/* Seletor Numérico de Unidades / Peças */}
                         <div className="flex items-center bg-slate-100 border-2 border-slate-300 rounded-xl overflow-hidden shadow-2xs">
                           <button
                             type="button"
@@ -310,7 +324,6 @@ export default function BatchDrawer({
                           peças
                         </span>
 
-                        {/* Botão Rápido: Adicionar +1 Caixa Fechada (+10 ou +20 un) */}
                         <button
                           type="button"
                           onClick={() => {
@@ -323,7 +336,6 @@ export default function BatchDrawer({
                         </button>
                       </div>
 
-                      {/* Subtotal do Item */}
                       <div className="text-right">
                         <span className="text-[10px] text-slate-500 font-bold block">Subtotal:</span>
                         <span className="text-sm sm:text-base font-black text-slate-950">
@@ -338,74 +350,131 @@ export default function BatchDrawer({
             </div>
           )}
 
-          {/* Formulário do Comprador */}
+          {/* FORMULÁRIO COM PREENCHIMENTO 100% OBRIGATÓRIO */}
           {batchItems.length > 0 && (
             <form onSubmit={handleSendQuotation} className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4 space-y-3 pt-3 mt-4">
-              <h3 className="text-xs font-black text-slate-950 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
-                <Building2 className="w-4 h-4 text-blue-700" />
-                <span>Dados do Comprador / Revendedor</span>
-              </h3>
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-xs font-black text-slate-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-blue-700" />
+                  <span>Dados Obrigatórios do Cliente</span>
+                </h3>
+                <span className="text-[10px] font-black text-rose-600 uppercase bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                  * Todos obrigatórios
+                </span>
+              </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">Nome do Comprador *</label>
+                  <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                    Nome do Responsável <span className="text-rose-600">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={buyerName}
-                    onChange={(e) => setBuyerName(e.target.value)}
+                    onChange={(e) => {
+                      setBuyerName(e.target.value);
+                      if (formErrors.buyerName) setFormErrors(prev => ({ ...prev, buyerName: null }));
+                    }}
                     placeholder="Ex: Carlos Silva"
-                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                    className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
+                      formErrors.buyerName ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
+                    }`}
                   />
+                  {formErrors.buyerName && (
+                    <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.buyerName}</span>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">Nome da Empresa / Loja *</label>
+                  <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                    Nome da Loja / Razão Social <span className="text-rose-600">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
+                    onChange={(e) => {
+                      setCompanyName(e.target.value);
+                      if (formErrors.companyName) setFormErrors(prev => ({ ...prev, companyName: null }));
+                    }}
                     placeholder="Ex: Mega Celulares Ltda"
-                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                    className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
+                      formErrors.companyName ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
+                    }`}
                   />
+                  {formErrors.companyName && (
+                    <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.companyName}</span>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">CNPJ ou CPF</label>
+                  <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                    CNPJ ou CPF <span className="text-rose-600">*</span>
+                  </label>
                   <input
                     type="text"
+                    required
                     value={cnpj}
-                    onChange={(e) => setCnpj(e.target.value)}
+                    onChange={(e) => {
+                      setCnpj(e.target.value);
+                      if (formErrors.cnpj) setFormErrors(prev => ({ ...prev, cnpj: null }));
+                    }}
                     placeholder="00.000.000/0001-00"
-                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                    className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
+                      formErrors.cnpj ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
+                    }`}
                   />
+                  {formErrors.cnpj && (
+                    <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.cnpj}</span>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">WhatsApp / Telefone *</label>
+                  <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                    WhatsApp de Contato <span className="text-rose-600">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={buyerPhone}
-                    onChange={(e) => setBuyerPhone(e.target.value)}
+                    onChange={(e) => {
+                      setBuyerPhone(e.target.value);
+                      if (formErrors.buyerPhone) setFormErrors(prev => ({ ...prev, buyerPhone: null }));
+                    }}
                     placeholder="(11) 99999-9999"
-                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                    className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
+                      formErrors.buyerPhone ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
+                    }`}
                   />
+                  {formErrors.buyerPhone && (
+                    <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.buyerPhone}</span>
+                  )}
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">Cidade / UF de Destino</label>
+                <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                  Cidade e UF de Destino / Entrega <span className="text-rose-600">*</span>
+                </label>
                 <input
                   type="text"
+                  required
                   value={cityState}
-                  onChange={(e) => setCityState(e.target.value)}
+                  onChange={(e) => {
+                    setCityState(e.target.value);
+                    if (formErrors.cityState) setFormErrors(prev => ({ ...prev, cityState: null }));
+                  }}
                   placeholder="Ex: São Paulo / SP"
-                  className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600"
+                  className={`w-full bg-white border-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors ${
+                    formErrors.cityState ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {formErrors.cityState && (
+                  <span className="text-[10px] text-rose-600 font-bold block mt-0.5">{formErrors.cityState}</span>
+                )}
               </div>
             </form>
           )}
