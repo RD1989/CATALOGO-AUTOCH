@@ -13,6 +13,7 @@ import {
 
 export default function Header({ 
   batchCount, 
+  batchUnits,
   batchTotal,
   onOpenBatch, 
   searchQuery, 
@@ -40,7 +41,7 @@ export default function Header({
             </span>
             <span className="text-slate-600 hidden md:inline">|</span>
             <span className="text-emerald-400 font-extrabold hidden md:inline truncate">
-              ✓ Faturamento por Caixa Master Lacrada (10 ou 20 PCS)
+              ✓ Pedido Mínimo Geral: 10 peças (monte seu lote misturado ou em caixas fechadas)
             </span>
           </div>
 
@@ -57,13 +58,12 @@ export default function Header({
         </div>
       </div>
 
-      {/* 2. NAVEGAÇÃO PRINCIPAL (Responsiva & Limpa) */}
+      {/* 2. NAVEGAÇÃO PRINCIPAL */}
       <div className="max-w-[1720px] mx-auto px-3 sm:px-8 py-2.5 sm:py-3.5 space-y-2.5 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-6">
         
-        {/* Linha Superior: Logo + Filtros + Meu Lote */}
         <div className="flex items-center justify-between gap-3">
           
-          {/* Logo Corporativa B2B */}
+          {/* Logo */}
           <div 
             className="flex items-center gap-2.5 sm:gap-3.5 cursor-pointer select-none shrink-0" 
             onClick={() => onSelectCategory('all')}
@@ -81,7 +81,7 @@ export default function Header({
             </div>
           </div>
 
-          {/* Menu Dropdown de Seções (Desktop) com a maior categoria primeiro */}
+          {/* Menu Dropdown de Seções (Desktop) */}
           <div className="relative hidden lg:block">
             <button
               type="button"
@@ -122,10 +122,9 @@ export default function Header({
             )}
           </div>
 
-          {/* Ações Mobile (Filtros + Lote) */}
+          {/* Ações Mobile */}
           <div className="flex items-center gap-2 lg:hidden">
             
-            {/* Botão Filtros Mobile */}
             <button
               type="button"
               onClick={onOpenMobileFilters}
@@ -141,7 +140,6 @@ export default function Header({
               )}
             </button>
 
-            {/* Botão Meu Lote Mobile */}
             <button
               type="button"
               onClick={onOpenBatch}
@@ -149,7 +147,7 @@ export default function Header({
               title="Meu Lote"
             >
               <Boxes className="w-4 h-4 text-blue-400" />
-              <span>{batchCount}</span>
+              <span>{batchUnits || 0} un</span>
             </button>
 
           </div>
@@ -180,10 +178,9 @@ export default function Header({
           </div>
         </div>
 
-        {/* Ações Desktop (Perfil Revendedor + Meu Lote) */}
+        {/* Ações Desktop */}
         <div className="hidden lg:flex items-center gap-3 shrink-0">
           
-          {/* Perfil Revendedor */}
           <div className="relative">
             <button 
               type="button"
@@ -212,7 +209,7 @@ export default function Header({
                   onClick={() => { onOpenBatch(); setIsAccountMenuOpen(false); }}
                   className="w-full px-4 py-3 text-left text-xs sm:text-sm font-black text-slate-900 hover:bg-slate-100 flex items-center justify-between"
                 >
-                  <span>Conferir Meu Lote</span>
+                  <span>Conferir Meu Lote ({batchUnits || 0} peças)</span>
                   <Boxes className="w-4 h-4 text-blue-600" />
                 </button>
               </div>
@@ -229,7 +226,7 @@ export default function Header({
             <Boxes className="w-5 h-5 text-blue-400" />
             <div className="flex flex-col text-left leading-tight">
               <span className="text-[10px] text-slate-300 font-extrabold uppercase">Meu Lote</span>
-              <span className="text-xs sm:text-sm font-black text-white">{batchCount} {batchCount === 1 ? 'modelo' : 'modelos'}</span>
+              <span className="text-xs sm:text-sm font-black text-white">{batchUnits || 0} {batchUnits === 1 ? 'peça' : 'peças'}</span>
             </div>
           </button>
 

@@ -13,7 +13,6 @@ import MobileBottomNav from './components/MobileBottomNav';
 import { PRODUCTS, CATEGORIES } from './data/products';
 
 export default function App() {
-  // Estado de Produtos Autônomo para Deploy na Vercel
   const [productsList, setProductsList] = useState(PRODUCTS);
 
   // Estados de Filtros e Visualização
@@ -55,34 +54,36 @@ export default function App() {
 
   const searchInputRef = useRef(null);
 
-  // Manipular Adição ao Lote
-  const handleAddToBatch = (product, selectedColor) => {
+  // Adicionar ao Lote (Por Unidade ou Caixa)
+  const handleAddToBatch = (product, selectedColor, quantityToAdd = 1) => {
     const color = selectedColor || product.colors?.[0]?.name || 'Padrão';
+    const qty = Math.max(1, parseInt(quantityToAdd) || 1);
 
     setBatchItems(prev => {
       const existingIndex = prev.findIndex(item => item.id === product.id && item.selectedColor === color);
       if (existingIndex > -1) {
         const updated = [...prev];
-        updated[existingIndex].quantity += product.minBatchQty;
+        updated[existingIndex].quantity += qty;
         return updated;
       } else {
         return [...prev, {
           ...product,
           selectedColor: color,
-          quantity: product.minBatchQty
+          quantity: qty
         }];
       }
     });
   };
 
   const handleUpdateBatchQty = (productId, color, newQty) => {
-    if (newQty <= 0) {
+    const qty = parseInt(newQty) || 0;
+    if (qty <= 0) {
       handleRemoveBatchItem(productId, color);
       return;
     }
     setBatchItems(prev => prev.map(item => {
       if (item.id === productId && item.selectedColor === color) {
-        return { ...item, quantity: newQty };
+        return { ...item, quantity: qty };
       }
       return item;
     }));
@@ -106,12 +107,10 @@ export default function App() {
   // Filtragem dos Produtos em Tempo Real
   const filteredProducts = useMemo(() => {
     return productsList.filter(product => {
-      // Categoria
       if (selectedCategory !== 'all' && product.category !== selectedCategory) {
         return false;
       }
 
-      // Busca por Texto (Nome, SKU, Specs)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = product.name.toLowerCase().includes(q);
@@ -122,22 +121,14 @@ export default function App() {
         if (!matchName && !matchSku && !matchSpecs) return false;
       }
 
-      // Faixa de Preço
       if (product.price < priceRange[0] || product.price > priceRange[1]) {
         return false;
       }
 
-      // Conectividade
       if (networkFilter.length > 0 && !networkFilter.includes(product.network)) {
         return false;
       }
 
-      // Embalagem Master
-      if (minBatchFilter.length > 0 && !minBatchFilter.includes(product.minBatchQty)) {
-        return false;
-      }
-
-      // Cores
       if (colorFilter.length > 0) {
         const productColors = product.colors?.map(c => c.name) || [];
         const hasColor = colorFilter.some(c => productColors.includes(c));
@@ -149,7 +140,7 @@ export default function App() {
       if (sortBy === 'menor-preco') return a.price - b.price;
       if (sortBy === 'maior-preco') return b.price - a.price;
       if (sortBy === 'lancamentos') return a.condition === 'Lançamento' ? -1 : 1;
-      return 0; // Mais vendidos (default)
+      return 0;
     });
   }, [
     productsList, 
@@ -157,15 +148,15 @@ export default function App() {
     searchQuery, 
     priceRange, 
     networkFilter, 
-    minBatchFilter, 
     colorFilter, 
     sortBy
   ]);
 
   // Contadores
+  const totalUnits = batchItems.reduce((acc, item) => acc + item.quantity, 0);
   const batchCount = batchItems.length;
   const batchTotal = batchItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const activeFilterCount = (networkFilter.length) + (minBatchFilter.length) + (colorFilter.length) + (searchQuery ? 1 : 0);
+  const activeFilterCount = (networkFilter.length) + (colorFilter.length) + (searchQuery ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans selection:bg-blue-600 selection:text-white">
@@ -173,6 +164,7 @@ export default function App() {
       {/* Cabeçalho do Catálogo Oficial */}
       <Header
         batchCount={batchCount}
+        batchUnits={totalUnits}
         batchTotal={batchTotal}
         onOpenBatch={() => setIsBatchOpen(true)}
         searchQuery={searchQuery}
@@ -202,7 +194,7 @@ export default function App() {
         {/* Estrutura: Filtros Laterais + Portfólio de Produtos */}
         <div className="flex items-start gap-6 lg:gap-8">
           
-          {/* Sidebar de Filtros (Desktop) */}
+          {/* Sidebar de Filtros */}
           <SidebarFilters
             priceRange={priceRange}
             setPriceRange={setPriceRange}
@@ -232,7 +224,7 @@ export default function App() {
                 </div>
                 <h3 className="text-lg font-black text-slate-950">Nenhum produto encontrado com os filtros atuais</h3>
                 <p className="text-xs text-slate-600 font-bold max-w-sm mx-auto">
-                  Tente limpar os filtros de preço, categoria ou conectividade para ver todos os 10 modelos disponíveis.
+                  Tente limpar os filtros de preço ou categoria para ver todos os 10 modelos disponíveis.
                 </p>
                 <button
                   type="button"
@@ -274,6 +266,7 @@ export default function App() {
       <MobileBottomNav
         onOpenBatch={() => setIsBatchOpen(true)}
         batchCount={batchCount}
+        batchUnits={totalUnits}
         batchTotal={batchTotal}
         onOpenFilters={() => setIsMobileFiltersOpen(true)}
         activeFilterCount={activeFilterCount}
@@ -298,6 +291,7 @@ export default function App() {
         batchItems={batchItems}
         onUpdateQty={handleUpdateBatchQty}
         onRemoveItem={handleRemoveBatchItem}
+        onAddToBatch={handleAddToBatch}
       />
 
     </div>

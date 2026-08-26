@@ -16,15 +16,19 @@ import {
   PackageCheck,
   Percent,
   Sparkles,
-  Edit3
+  AlertTriangle,
+  ShoppingBag
 } from 'lucide-react';
+
+const MINIMUM_ORDER_UNITS = 10;
 
 export default function BatchDrawer({
   isOpen,
   onClose,
   batchItems,
   onUpdateQty,
-  onRemoveItem
+  onRemoveItem,
+  onAddToBatch
 }) {
   if (!isOpen) return null;
 
@@ -36,34 +40,42 @@ export default function BatchDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Cálculos consolidados do lote
-  const totalBoxes = batchItems.reduce((acc, item) => {
-    const boxCount = Math.max(1, Math.round(item.quantity / (item.minBatchQty || 10)));
-    return acc + boxCount;
-  }, 0);
-
   const totalPieces = batchItems.reduce((acc, item) => acc + item.quantity, 0);
+
+  const totalBoxes = batchItems.reduce((acc, item) => {
+    const boxSize = item.minBatchQty || 10;
+    return acc + (item.quantity / boxSize);
+  }, 0);
 
   const grossTotal = batchItems.reduce((acc, item) => {
     return acc + (item.price * item.quantity);
   }, 0);
 
-  // Desconto por volume (ex: 5% para pedidos com 5 caixas ou mais, 3% para 3 caixas ou mais)
-  const volumeDiscountPercent = totalBoxes >= 5 ? 5 : totalBoxes >= 3 ? 3 : 0;
+  // Meta de Pedido Mínimo (10 peças no total do pedido)
+  const isMinimumReached = totalPieces >= MINIMUM_ORDER_UNITS;
+  const remainingUnits = Math.max(0, MINIMUM_ORDER_UNITS - totalPieces);
+  const progressPercent = Math.min(100, Math.round((totalPieces / MINIMUM_ORDER_UNITS) * 100));
+
+  // Desconto por volume (ex: 5% a partir de 50 peças / 5 caixas)
+  const volumeDiscountPercent = totalPieces >= 50 ? 5 : totalPieces >= 30 ? 3 : 0;
   const discountAmount = (grossTotal * volumeDiscountPercent) / 100;
   const netTotal = grossTotal - discountAmount;
 
-  // Alteração direta da quantidade de caixas pelo input numérico
-  const handleBoxInputChange = (item, newBoxCount) => {
-    const boxes = parseInt(newBoxCount) || 1;
-    const minQty = item.minBatchQty || 10;
-    const finalQty = Math.max(minQty, boxes * minQty);
-    onUpdateQty(item.id, item.selectedColor, finalQty);
+  // Alteração direta da quantidade de peças pelo input numérico
+  const handlePieceInputChange = (item, newPieceCount) => {
+    const pieces = parseInt(newPieceCount) || 1;
+    onUpdateQty(item.id, item.selectedColor, Math.max(1, pieces));
   };
 
   // Enviar Cotação Comercial Formatada via WhatsApp
   const handleSendQuotation = (e) => {
     e.preventDefault();
     if (batchItems.length === 0) return;
+
+    if (!isMinimumReached) {
+      alert(`⚠️ O pedido mínimo de atacado é de ${MINIMUM_ORDER_UNITS} unidades no total. Adicione mais ${remainingUnits} unidade(s) de qualquer produto.`);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -82,19 +94,21 @@ export default function BatchDrawer({
     msg += `📦 *ITENS DO LOTE SOLICITADO:*\n\n`;
 
     batchItems.forEach((item, index) => {
-      const boxes = Math.round(item.quantity / (item.minBatchQty || 10));
+      const boxSize = item.minBatchQty || 10;
+      const boxesEquiv = (item.quantity / boxSize).toFixed(1).replace('.0', '');
       const subtotal = item.price * item.quantity;
+
       msg += `*${index + 1}. ${item.name}*\n`;
       msg += `   ▪ *SKU:* \`${item.sku}\`\n`;
       msg += `   ▪ *Cor:* ${item.selectedColor}\n`;
-      msg += `   ▪ *Volume:* *${boxes} Caixa(s)* (${item.quantity} unidades no total)\n`;
+      msg += `   ▪ *Quantidade:* *${item.quantity} unidades* (~${boxesEquiv} cx de ${boxSize} un)\n`;
       msg += `   ▪ *Preço Unitário:* R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
-      msg += `   ▪ *Subtotal do Item:* *R$ ${subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
+      msg += `   ▪ *Subtotal:* *R$ ${subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
     });
 
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     msg += `📊 *RESUMO DO FATURAMENTO:*\n`;
-    msg += `• *Volume Total:* ${totalBoxes} caixas fechadas (${totalPieces} peças)\n`;
+    msg += `• *Total de Peças no Pedido:* ${totalPieces} unidades\n`;
     msg += `• *Subtotal Bruto:* R$ ${grossTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
     
     if (volumeDiscountPercent > 0) {
@@ -103,7 +117,7 @@ export default function BatchDrawer({
     
     msg += `• *VALOR ESTIMADO DO PEDIDO:* *R$ ${netTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `_Solicito a confirmação de disponibilidade de pronta-entrega e os dados para emissão de nota fiscal e envio._`;
+    msg += `_Solicito confirmação de pronta-entrega e dados para faturamento._`;
 
     const encoded = encodeURIComponent(msg);
     const whatsappUrl = `https://wa.me/5511999999999?text=${encoded}`;
@@ -130,7 +144,7 @@ export default function BatchDrawer({
                 Meu Lote de Compras
               </h2>
               <span className="text-xs text-slate-300 font-bold">
-                {totalBoxes} {totalBoxes === 1 ? 'caixa master' : 'caixas master'} • {totalPieces} peças
+                {totalPieces} {totalPieces === 1 ? 'peça adicionada' : 'peças adicionadas'} • {batchItems.length} {batchItems.length === 1 ? 'modelo' : 'modelos'}
               </span>
             </div>
           </div>
@@ -144,6 +158,48 @@ export default function BatchDrawer({
           </button>
         </div>
 
+        {/* BARRA DE METAS DE PEDIDO MÍNIMO B2B (10 UNIDADES) */}
+        <div className={`p-3.5 border-b-2 transition-colors ${
+          isMinimumReached 
+            ? 'bg-emerald-50 border-emerald-300 text-emerald-950' 
+            : 'bg-amber-50 border-amber-300 text-amber-950'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-black mb-1.5">
+            <span className="flex items-center gap-1.5 uppercase tracking-wide">
+              {isMinimumReached ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Meta de Pedido Mínimo Atingida!</span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <span>Meta Mínima: {totalPieces} de {MINIMUM_ORDER_UNITS} unidades</span>
+                </>
+              )}
+            </span>
+            <span className="font-extrabold">
+              {isMinimumReached ? `${totalPieces} un. liberadas` : `Faltam ${remainingUnits} un.`}
+            </span>
+          </div>
+
+          {/* Barra de Progresso */}
+          <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-300 ${
+                isMinimumReached ? 'bg-emerald-500' : 'bg-amber-500'
+              }`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          {!isMinimumReached && (
+            <p className="text-[11px] text-amber-900 font-bold mt-1.5 leading-snug">
+              💡 Você pode misturar quaisquer modelos até completar o mínimo de <strong>10 peças</strong> para atacado.
+            </p>
+          )}
+        </div>
+
         {/* Lista de Itens do Lote */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           
@@ -154,13 +210,13 @@ export default function BatchDrawer({
               </div>
               <h3 className="text-base font-black text-slate-950">Seu lote está vazio</h3>
               <p className="text-xs text-slate-600 font-bold max-w-xs mx-auto">
-                Adicione caixas master dos tablets ou power banks no catálogo para calcular o faturamento do seu pedido.
+                Adicione peças avulsas ou caixas fechadas dos produtos para montar seu lote no atacado.
               </p>
             </div>
           ) : (
             <div className="space-y-3.5">
               {batchItems.map((item) => {
-                const boxCount = Math.max(1, Math.round(item.quantity / (item.minBatchQty || 10)));
+                const boxSize = item.minBatchQty || 10;
                 const itemSubtotal = item.price * item.quantity;
 
                 return (
@@ -168,7 +224,7 @@ export default function BatchDrawer({
                     key={`${item.id}-${item.selectedColor}`}
                     className="bg-white border-2 border-slate-300 rounded-2xl p-4 shadow-sm space-y-3"
                   >
-                    {/* Topo do Card do Item: Foto + Dados Principais */}
+                    {/* Topo do Card do Item */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="w-14 h-14 rounded-xl bg-slate-50 border-2 border-slate-200 p-1 flex items-center justify-center shrink-0">
@@ -181,9 +237,15 @@ export default function BatchDrawer({
                           <h4 className="text-xs sm:text-sm font-black text-slate-950 uppercase leading-snug mt-0.5">
                             {item.name}
                           </h4>
-                          <span className="text-xs font-bold text-slate-600">
-                            Cor: <strong className="text-slate-950 font-black">{item.selectedColor}</strong>
-                          </span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs font-bold text-slate-600">
+                              Cor: <strong className="text-slate-950 font-black">{item.selectedColor}</strong>
+                            </span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-xs font-black text-blue-700">
+                              R$ {item.price.toFixed(2)} / un
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -197,62 +259,72 @@ export default function BatchDrawer({
                       </button>
                     </div>
 
-                    {/* Controles Avançados de Quantidade de Caixas (Botões +/- e Input Numérico Direto) */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t-2 border-slate-100 text-xs">
+                    {/* CONTROLES FLEXÍVEIS: UNIDADES AVULSAS + ATALHO DE CAIXA */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t-2 border-slate-100 text-xs">
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <span className="font-black text-slate-700 uppercase tracking-wider text-[10px]">
-                          Caixas Master:
+                          Quantidade:
                         </span>
                         
+                        {/* Seletor Numérico de Unidades / Peças */}
                         <div className="flex items-center bg-slate-100 border-2 border-slate-300 rounded-xl overflow-hidden shadow-2xs">
-                          {/* Botão Diminuir 1 Caixa */}
                           <button
                             type="button"
                             onClick={() => {
-                              if (item.quantity > item.minBatchQty) {
-                                onUpdateQty(item.id, item.selectedColor, item.quantity - item.minBatchQty);
+                              if (item.quantity > 1) {
+                                onUpdateQty(item.id, item.selectedColor, item.quantity - 1);
                               } else {
                                 onRemoveItem(item.id, item.selectedColor);
                               }
                             }}
                             className="p-2 text-slate-700 hover:text-slate-950 hover:bg-slate-200 transition-colors"
-                            title="Diminuir 1 Caixa"
+                            title="Diminuir 1 Peça"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Input Numérico Editável Direto */}
                           <input
                             type="number"
                             min="1"
-                            max="999"
-                            value={boxCount}
-                            onChange={(e) => handleBoxInputChange(item, e.target.value)}
-                            className="w-12 text-center font-black text-slate-950 text-xs bg-white py-1 outline-none border-x border-slate-300"
-                            title="Digite a quantidade de caixas"
+                            max="9999"
+                            value={item.quantity}
+                            onChange={(e) => handlePieceInputChange(item, e.target.value)}
+                            className="w-14 text-center font-black text-slate-950 text-xs bg-white py-1 outline-none border-x border-slate-300"
+                            title="Digite a quantidade exata de peças"
                           />
 
-                          {/* Botão Adicionar 1 Caixa */}
                           <button
                             type="button"
                             onClick={() => {
-                              onUpdateQty(item.id, item.selectedColor, item.quantity + item.minBatchQty);
+                              onUpdateQty(item.id, item.selectedColor, item.quantity + 1);
                             }}
                             className="p-2 text-slate-700 hover:text-slate-950 hover:bg-slate-200 transition-colors"
-                            title="Adicionar 1 Caixa"
+                            title="Adicionar 1 Peça"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
                         <span className="text-[11px] text-slate-600 font-bold">
-                          ({item.quantity} un.)
+                          peças
                         </span>
+
+                        {/* Botão Rápido: Adicionar +1 Caixa Fechada (+10 ou +20 un) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onUpdateQty(item.id, item.selectedColor, item.quantity + boxSize);
+                          }}
+                          className="bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 px-2 py-1 rounded-lg text-[10px] font-black transition-colors"
+                          title={`Adicionar +1 caixa fechada com ${boxSize} peças`}
+                        >
+                          +1 Caixa ({boxSize} un)
+                        </button>
                       </div>
 
-                      {/* Subtotal Calculado */}
-                      <div className="text-right sm:text-right">
+                      {/* Subtotal do Item */}
+                      <div className="text-right">
                         <span className="text-[10px] text-slate-500 font-bold block">Subtotal:</span>
                         <span className="text-sm sm:text-base font-black text-slate-950">
                           R$ {itemSubtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -266,7 +338,7 @@ export default function BatchDrawer({
             </div>
           )}
 
-          {/* Dados do Comprador para a Cotação Formatada */}
+          {/* Formulário do Comprador */}
           {batchItems.length > 0 && (
             <form onSubmit={handleSendQuotation} className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4 space-y-3 pt-3 mt-4">
               <h3 className="text-xs font-black text-slate-950 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
@@ -346,7 +418,7 @@ export default function BatchDrawer({
             
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-slate-600 font-bold">
-                <span>Subtotal Bruto ({totalBoxes} caixas):</span>
+                <span>Subtotal Bruto ({totalPieces} peças):</span>
                 <span>R$ {grossTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
 
@@ -368,11 +440,19 @@ export default function BatchDrawer({
             <button
               type="button"
               onClick={handleSendQuotation}
-              disabled={isSubmitting}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-base font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]"
+              disabled={isSubmitting || !isMinimumReached}
+              className={`w-full text-sm sm:text-base font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] ${
+                isMinimumReached 
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 cursor-pointer' 
+                  : 'bg-slate-300 text-slate-600 cursor-not-allowed'
+              }`}
             >
               <Send className="w-5 h-5" />
-              <span>Solicitar Cotação no WhatsApp ({totalBoxes} {totalBoxes === 1 ? 'caixa' : 'caixas'})</span>
+              <span>
+                {isMinimumReached 
+                  ? `Solicitar Cotação no WhatsApp (${totalPieces} peças)` 
+                  : `Faltam ${remainingUnits} peças para o pedido mínimo`}
+              </span>
             </button>
 
           </div>

@@ -26,7 +26,7 @@ export default function HeroSection({
   return (
     <div className="mb-6 sm:mb-8 space-y-4 sm:space-y-6">
       
-      {/* Cabeçalho do Catálogo Comercial B2B Ampliado para Desktop */}
+      {/* Cabeçalho do Catálogo Comercial B2B */}
       <div className="bg-white border-2 border-slate-300 rounded-3xl p-5 sm:p-7 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           
@@ -46,11 +46,11 @@ export default function HeroSection({
               Catálogo Atacado
             </h1>
             <p className="text-sm sm:text-base text-slate-700 font-bold max-w-3xl leading-relaxed">
-              Consulte nosso portfólio completo com especificações técnicas, estoque em tempo real e condições de faturamento por caixa fechada master (10 ou 20 peças).
+              Consulte nosso portfólio completo com especificações técnicas e condições de atacado. <strong>Pedido mínimo de apenas 10 peças no total</strong> (compre por unidade misturando modelos ou caixas fechadas).
             </p>
           </div>
 
-          {/* 2 Cards de Indicadores Operacionais B2B no Desktop */}
+          {/* 2 Cards de Indicadores Operacionais B2B */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
             
             {/* Card Revendedor */}
@@ -68,15 +68,15 @@ export default function HeroSection({
               </div>
             </div>
 
-            {/* Card Pedido Mínimo */}
+            {/* Card Pedido Mínimo: 10 Peças */}
             <div className="flex items-center gap-3.5 bg-amber-50 border-2 border-amber-300 rounded-2xl p-3.5 sm:p-4">
               <div className="w-11 h-11 rounded-xl bg-amber-500 flex items-center justify-center text-white shrink-0 shadow-md">
                 <PackageCheck className="w-6 h-6" />
               </div>
               <div className="flex flex-col text-xs sm:text-sm leading-tight">
-                <strong className="text-amber-950 font-black">Pedido Mínimo</strong>
+                <strong className="text-amber-950 font-black">Pedido Mínimo Geral</strong>
                 <span className="text-amber-900 font-bold text-xs mt-1">
-                  1 Caixa Fechada (10 ou 20 un.)
+                  Apenas 10 peças (misturadas ou em caixas)
                 </span>
               </div>
             </div>
@@ -86,7 +86,7 @@ export default function HeroSection({
         </div>
       </div>
 
-      {/* Seções do Catálogo (Cards Amplos no Desktop) */}
+      {/* Seções do Catálogo */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {categories.map((cat) => {
           const isActive = selectedCategory === cat.id;
@@ -106,8 +106,8 @@ export default function HeroSection({
                 isActive ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-900 border border-slate-300'
               }`}>
                 {cat.id === 'all' && <Layers className="w-6 h-6 sm:w-7 sm:h-7" />}
-                {cat.id === 'tablets-infantis' && <Gamepad2 className={`w-6 h-6 sm:w-7 sm:h-7 ${isActive ? 'text-white' : 'text-pink-600'}`} />}
                 {cat.id === 'tablets-profissionais' && <Laptop className={`w-6 h-6 sm:w-7 sm:h-7 ${isActive ? 'text-white' : 'text-blue-600'}`} />}
+                {cat.id === 'tablets-infantis' && <Gamepad2 className={`w-6 h-6 sm:w-7 sm:h-7 ${isActive ? 'text-white' : 'text-pink-600'}`} />}
                 {cat.id === 'power-banks' && <BatteryCharging className={`w-6 h-6 sm:w-7 sm:h-7 ${isActive ? 'text-white' : 'text-amber-500'}`} />}
               </div>
 
@@ -132,10 +132,9 @@ export default function HeroSection({
         })}
       </div>
 
-      {/* Barra de Controles de Consulta do Catálogo (Desktop & Mobile) */}
+      {/* Barra de Controles de Consulta do Catálogo */}
       <div className="bg-white border-2 border-slate-300 rounded-2xl px-5 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
         
-        {/* Totalizador & Ordenação com Fontes Maiores */}
         <div className="flex items-center gap-4 text-sm sm:text-base w-full sm:w-auto justify-between sm:justify-start">
           <span className="text-slate-800 font-bold">
             Mostrando <strong className="text-slate-950 font-black text-base">{totalItemsCount}</strong> produtos no catálogo
@@ -158,7 +157,6 @@ export default function HeroSection({
           </div>
         </div>
 
-        {/* Alternador de Visualização: Grade vs Tabela com Botões Grandes */}
         <div className="flex items-center gap-2.5 ml-auto sm:ml-0">
           <span className="text-xs sm:text-sm text-slate-700 font-black hidden md:inline">Modo de Exibição:</span>
           <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl border-2 border-slate-300">

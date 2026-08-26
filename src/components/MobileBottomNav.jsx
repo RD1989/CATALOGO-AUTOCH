@@ -11,6 +11,7 @@ import {
 export default function MobileBottomNav({
   onOpenBatch,
   batchCount,
+  batchUnits,
   batchTotal,
   onOpenFilters,
   activeFilterCount,
@@ -68,16 +69,16 @@ export default function MobileBottomNav({
       >
         <div className="relative">
           <Boxes className="w-5 h-5 text-blue-400" />
-          {batchCount > 0 && (
+          {batchUnits > 0 && (
             <span className="absolute -top-1.5 -right-2 bg-blue-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-              {batchCount}
+              {batchUnits}
             </span>
           )}
         </div>
         <div className="flex flex-col text-left leading-none">
           <span className="text-[9px] text-slate-300 font-extrabold uppercase">Lote</span>
           <span className="text-[11px] font-black text-white">
-            {batchTotal > 0 ? `R$ ${(batchTotal / 1000).toFixed(1)}k` : '0 un.'}
+            {batchUnits > 0 ? `${batchUnits} un` : '0 un'}
           </span>
         </div>
       </button>

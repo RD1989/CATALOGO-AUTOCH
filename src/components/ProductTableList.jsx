@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Check, Eye, PackageCheck } from 'lucide-react';
+import { Plus, Check, Eye, PackageCheck, Boxes } from 'lucide-react';
 
 export default function ProductTableList({ 
   products, 
@@ -13,14 +13,24 @@ export default function ProductTableList({
     setSelectedColors(prev => ({ ...prev, [productId]: colorName }));
   };
 
-  const handleAdd = (product) => {
+  const handleAddUnit = (product) => {
     const color = selectedColors[product.id] || product.colors[0]?.name || 'Padrão';
-    onAddToBatch(product, color);
+    onAddToBatch(product, color, 1);
 
-    setAddedItems(prev => ({ ...prev, [product.id]: true }));
+    setAddedItems(prev => ({ ...prev, [product.id]: 'unit' }));
     setTimeout(() => {
       setAddedItems(prev => ({ ...prev, [product.id]: false }));
-    }, 1200);
+    }, 1000);
+  };
+
+  const handleAddBox = (product) => {
+    const color = selectedColors[product.id] || product.colors[0]?.name || 'Padrão';
+    onAddToBatch(product, color, product.minBatchQty || 10);
+
+    setAddedItems(prev => ({ ...prev, [product.id]: 'box' }));
+    setTimeout(() => {
+      setAddedItems(prev => ({ ...prev, [product.id]: false }));
+    }, 1000);
   };
 
   return (
@@ -34,11 +44,10 @@ export default function ProductTableList({
               <th className="py-4 px-4">Modelo & Especificações</th>
               <th className="py-4 px-4">Categoria</th>
               <th className="py-4 px-4">Cores Disponíveis</th>
-              <th className="py-4 px-4">Embalagem Master</th>
-              <th className="py-4 px-4">Status Estoque</th>
-              <th className="py-4 px-4 text-right">Preço Atacado (UN)</th>
-              <th className="py-4 px-4 text-right">Total Caixa Master</th>
-              <th className="py-4 px-4 text-center">Ação</th>
+              <th className="py-4 px-4">Caixa Fechada</th>
+              <th className="py-4 px-4">Status</th>
+              <th className="py-4 px-4 text-right">Preço Unitário (Atacado)</th>
+              <th className="py-4 px-4 text-center">Adicionar ao Lote</th>
             </tr>
           </thead>
 
@@ -46,7 +55,7 @@ export default function ProductTableList({
             {products.map((product) => {
               const currentColor = selectedColors[product.id] || product.colors[0]?.name || 'Padrão';
               const isAdded = addedItems[product.id];
-              const lotSubtotal = product.price * product.minBatchQty;
+              const boxTotal = product.price * (product.minBatchQty || 10);
 
               return (
                 <tr 
@@ -127,10 +136,10 @@ export default function ProductTableList({
                     )}
                   </td>
 
-                  {/* Embalagem Master / Lote Mínimo */}
+                  {/* Caixa Master */}
                   <td className="py-3 px-4 whitespace-nowrap">
                     <span className="font-black text-amber-950 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-md text-xs">
-                      {product.minBatchQty} un. / caixa
+                      {product.minBatchQty || 10} un. (R$ {boxTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
                     </span>
                   </td>
 
@@ -147,40 +156,36 @@ export default function ProductTableList({
                     <span className="font-black text-slate-950 text-base">
                       R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
-                    <span className="text-[10px] text-slate-600 block font-bold">/ unidade</span>
+                    <span className="text-[10px] text-slate-600 block font-bold">/ peça</span>
                   </td>
 
-                  {/* Total Caixa Master */}
-                  <td className="py-3 px-4 text-right whitespace-nowrap">
-                    <span className="font-black text-slate-900 text-sm">
-                      R$ {lotSubtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-[10px] text-slate-500 block font-bold">faturado</span>
-                  </td>
-
-                  {/* Botão Ação */}
+                  {/* Botões Ação: Por Peça ou Caixa */}
                   <td className="py-3 px-4 text-center whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => handleAdd(product)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs ${
-                        isAdded 
-                          ? 'bg-emerald-600 text-white ring-2 ring-emerald-600' 
-                          : 'bg-slate-950 hover:bg-blue-700 text-white'
-                      }`}
-                    >
-                      {isAdded ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>1 Caixa Incluída!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ 1 Caixa ({product.minBatchQty} un)</span>
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleAddUnit(product)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1 shadow-xs ${
+                          isAdded === 'unit' 
+                            ? 'bg-emerald-600 text-white' 
+                            : 'bg-slate-950 hover:bg-blue-700 text-white'
+                        }`}
+                        title="Adicionar 1 peça avulsa"
+                      >
+                        {isAdded === 'unit' ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                        <span>+1 Peça</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAddBox(product)}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-black bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 transition-colors"
+                        title={`Adicionar 1 caixa fechada com ${product.minBatchQty || 10} peças`}
+                      >
+                        <Boxes className="w-3.5 h-3.5 text-amber-700 inline mr-1" />
+                        <span>+1 Caixa</span>
+                      </button>
+                    </div>
                   </td>
 
                 </tr>

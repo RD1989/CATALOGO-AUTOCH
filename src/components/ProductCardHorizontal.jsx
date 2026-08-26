@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Check, Eye, PackageCheck, Zap } from 'lucide-react';
+import { Plus, Check, Eye, PackageCheck, Zap, Boxes } from 'lucide-react';
 
 export default function ProductCardHorizontal({ 
   product, 
@@ -7,16 +7,24 @@ export default function ProductCardHorizontal({
   onQuickView 
 }) {
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0]?.name || 'Preto');
-  const [justAdded, setJustAdded] = useState(false);
+  const [justAddedUnit, setJustAddedUnit] = useState(false);
+  const [justAddedBox, setJustAddedBox] = useState(false);
 
-  const handleAdd = (e) => {
+  const handleAddUnit = (e) => {
     e.stopPropagation();
-    onAddToBatch(product, selectedColor);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 1200);
+    onAddToBatch(product, selectedColor, 1);
+    setJustAddedUnit(true);
+    setTimeout(() => setJustAddedUnit(false), 1000);
   };
 
-  const lotSubtotal = product.price * product.minBatchQty;
+  const handleAddBox = (e) => {
+    e.stopPropagation();
+    onAddToBatch(product, selectedColor, product.minBatchQty || 10);
+    setJustAddedBox(true);
+    setTimeout(() => setJustAddedBox(false), 1000);
+  };
+
+  const boxTotal = product.price * (product.minBatchQty || 10);
 
   return (
     <div 
@@ -94,15 +102,12 @@ export default function ProductCardHorizontal({
           </div>
         )}
 
-        <div className="space-y-2 py-3.5 px-4 bg-slate-50 rounded-2xl border-2 border-slate-200/80 mb-4 text-xs sm:text-sm">
+        <div className="space-y-2 py-3 px-3.5 bg-slate-50 rounded-2xl border-2 border-slate-200/80 mb-4 text-xs sm:text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-slate-700 font-bold flex items-center gap-1.5">
-              <PackageCheck className="w-4 h-4 text-slate-950" />
-              Pedido Mínimo (Caixa):
+            <span className="text-slate-700 font-bold">Caixa Fechada:</span>
+            <span className="font-black text-slate-900 bg-slate-200 px-2 py-0.5 rounded-md text-xs">
+              {product.minBatchQty || 10} un. (R$ {boxTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
             </span>
-            <strong className="text-slate-950 font-black text-sm bg-amber-200 text-amber-950 px-2.5 py-0.5 rounded-lg">
-              {product.minBatchQty} unidades
-            </strong>
           </div>
 
           <div className="flex items-center justify-between">
@@ -110,13 +115,6 @@ export default function ProductCardHorizontal({
             <span className="inline-flex items-center gap-1.5 text-emerald-900 bg-emerald-100 font-black text-xs px-2.5 py-0.5 rounded-lg border border-emerald-200">
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
               {product.statusLabel}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t-2 border-slate-200 text-xs sm:text-sm">
-            <span className="text-slate-600 font-bold">Total faturado por caixa:</span>
-            <span className="font-black text-slate-950 text-sm sm:text-base">
-              R$ {lotSubtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>
@@ -129,32 +127,56 @@ export default function ProductCardHorizontal({
             <span className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
               R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
-            <span className="text-xs font-bold text-slate-600">/ unidade</span>
+            <span className="text-xs font-bold text-slate-600">/ peça</span>
           </div>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleAdd}
-        className={`w-full font-black text-sm sm:text-base py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] ${
-          justAdded 
-            ? 'bg-emerald-600 text-white shadow-emerald-500/30 ring-2 ring-emerald-600' 
-            : 'bg-slate-950 hover:bg-blue-700 text-white shadow-slate-950/20'
-        }`}
-      >
-        {justAdded ? (
-          <>
-            <Check className="w-5 h-5" />
-            <span>1 Caixa Adicionada ao Lote!</span>
-          </>
-        ) : (
-          <>
-            <Plus className="w-5 h-5" />
-            <span>+ Adicionar 1 Caixa ({product.minBatchQty} un)</span>
-          </>
-        )}
-      </button>
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={handleAddUnit}
+          className={`w-full font-black text-xs sm:text-sm py-3 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] ${
+            justAddedUnit 
+              ? 'bg-emerald-600 text-white' 
+              : 'bg-slate-950 hover:bg-blue-700 text-white'
+          }`}
+        >
+          {justAddedUnit ? (
+            <>
+              <Check className="w-4 h-4" />
+              <span>+1 Peça Adicionada!</span>
+            </>
+          ) : (
+            <>
+              <Plus className="w-4 h-4" />
+              <span>+ Adicionar 1 Peça</span>
+            </>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleAddBox}
+          className={`w-full font-black text-xs py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all border-2 ${
+            justAddedBox 
+              ? 'bg-amber-500 text-slate-950 border-amber-500' 
+              : 'bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-300'
+          }`}
+        >
+          {justAddedBox ? (
+            <>
+              <Check className="w-3.5 h-3.5" />
+              <span>1 Caixa ({product.minBatchQty || 10} un) Adicionada!</span>
+            </>
+          ) : (
+            <>
+              <Boxes className="w-3.5 h-3.5 text-amber-700" />
+              <span>+ Adicionar 1 Caixa Fechada ({product.minBatchQty || 10} un)</span>
+            </>
+          )}
+        </button>
+      </div>
 
     </div>
   );
