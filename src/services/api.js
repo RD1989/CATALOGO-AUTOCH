@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
 
 // Helper para injetar token de autenticação do admin nas requisições protegidas
 const adminHeaders = () => {
