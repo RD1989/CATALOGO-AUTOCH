@@ -22,8 +22,19 @@ export default function Header({
   onSelectCategory,
   onOpenMobileFilters,
   activeFilterCount,
-  searchInputRef
+  searchInputRef,
+  onOpenAdmin,
+  isServerOnline = true,
+  products = [],
+  tableDate = 'Agosto / 2026'
 }) {
+  // Contagens dinâmicas calculadas a partir da lista de produtos atual
+  const categoryCounts = {
+    all: products.length,
+    'tablets-profissionais': products.filter(p => p.category === 'tablets-profissionais').length,
+    'tablets-infantis': products.filter(p => p.category === 'tablets-infantis').length,
+    'power-banks': products.filter(p => p.category === 'power-banks').length,
+  };
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
@@ -47,12 +58,23 @@ export default function Header({
 
           <div className="flex items-center gap-3 shrink-0 text-slate-300">
             <span className="text-amber-300 font-black">
-              Tabela Vigente: Agosto/2026
+              Tabela Vigente: {tableDate}
             </span>
             <span className="text-slate-700 hidden sm:inline">|</span>
-            <span className="text-emerald-400 font-bold hidden sm:inline">
-              Estoque Físico Pronta-Entrega
+            <span className="text-emerald-400 font-bold hidden sm:inline flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${isServerOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              {isServerOnline ? 'Banco SQLite Online' : 'Modo Catálogo Local'}
             </span>
+            <span className="text-slate-700 hidden md:inline">|</span>
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-md transition-colors shadow-xs flex items-center gap-1"
+              title="Acessar Painel de Gestão B2B e Preços"
+            >
+              <ShieldCheck className="w-3 h-3" />
+              <span>Painel Admin</span>
+            </button>
           </div>
 
         </div>
@@ -98,10 +120,10 @@ export default function Header({
                 onMouseLeave={() => setIsCategoryMenuOpen(false)}
               >
                 {[
-                  { id: 'all', label: 'Catálogo Geral (Todos)', count: '10 modelos' },
-                  { id: 'tablets-profissionais', label: 'Tablets Profissionais', count: '6 modelos' },
-                  { id: 'tablets-infantis', label: 'Tablets Infantis', count: '2 modelos' },
-                  { id: 'power-banks', label: 'Power Banks & Acessórios', count: '2 modelos' },
+                  { id: 'all', label: 'Catálogo Geral (Todos)' },
+                  { id: 'tablets-profissionais', label: 'Tablets Profissionais' },
+                  { id: 'tablets-infantis', label: 'Tablets Infantis' },
+                  { id: 'power-banks', label: 'Power Banks & Acessórios' },
                 ].map(cat => (
                   <button
                     key={cat.id}
@@ -114,7 +136,7 @@ export default function Header({
                   >
                     <span>{cat.label}</span>
                     <span className={`text-xs font-bold ${selectedCategory === cat.id ? 'text-blue-100' : 'text-slate-500'}`}>
-                      {cat.count}
+                      {categoryCounts[cat.id] ?? 0} modelos
                     </span>
                   </button>
                 ))}
@@ -205,12 +227,24 @@ export default function Header({
                   </span>
                 </div>
                 <button 
-                  type="button"
+                  type="button" 
                   onClick={() => { onOpenBatch(); setIsAccountMenuOpen(false); }}
-                  className="w-full px-4 py-3 text-left text-xs sm:text-sm font-black text-slate-900 hover:bg-slate-100 flex items-center justify-between"
+                  className="w-full px-4 py-2.5 text-left text-xs sm:text-sm font-black text-slate-900 hover:bg-slate-100 flex items-center justify-between"
                 >
                   <span>Conferir Meu Lote ({batchUnits || 0} peças)</span>
                   <Boxes className="w-4 h-4 text-blue-600" />
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => { onOpenAdmin(); setIsAccountMenuOpen(false); }}
+                  className="w-full px-4 py-2.5 text-left text-xs sm:text-sm font-black text-blue-700 hover:bg-blue-50 flex items-center justify-between border-t border-slate-100"
+                >
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-700" />
+                    <span>Painel de Gestão & Estoque</span>
+                  </span>
+                  <span className="text-[10px] bg-blue-100 text-blue-900 font-extrabold px-2 py-0.5 rounded">ADM</span>
                 </button>
               </div>
             )}

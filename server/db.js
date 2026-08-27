@@ -95,7 +95,28 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'Ativo',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- Índices de Alta Performance para Acelerar Consultas (RULE-DB-002)
+  CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+  CREATE INDEX IF NOT EXISTS idx_products_price ON products(price ASC);
+  CREATE INDEX IF NOT EXISTS idx_quotes_created_at ON quotes(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_events_type_created ON analytics_events(event_type, created_at);
+  CREATE INDEX IF NOT EXISTS idx_customers_total_spent ON customers(total_spent DESC);
 `);
+
+// Garantir que a senha de admin exista com hash seguro bcrypt (RULE-SEC-002)
+const adminSetting = db.prepare("SELECT value FROM settings WHERE key = 'admin_password'").get();
+if (!adminSetting) {
+  // Hash de 'admin123' com 10 salt rounds
+  const defaultHash = '$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDM95K8qpvqQ1cuy'; // bcrypt hash of admin123
+  db.prepare("INSERT INTO settings (key, value) VALUES ('admin_password', ?)").run(defaultHash);
+} else if (!adminSetting.value.startsWith('$2a$') && !adminSetting.value.startsWith('$2b$')) {
+  // Migrar senha em texto plano existente para hash bcrypt
+  import('bcryptjs').then(bcrypt => {
+    const hashed = bcrypt.default.hashSync(adminSetting.value, 10);
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'admin_password'").run(hashed);
+  });
+}
 
 // Seed inicial dos 10 produtos oficiais do catálogo PDF caso o banco esteja vazio
 const productCount = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
@@ -529,6 +550,7 @@ if (productCount === 0) {
   insertSetting.run('company_whatsapp', '5511999999999');
   insertSetting.run('current_table_date', 'Agosto / 2026');
   insertSetting.run('min_order_policy', 'Faturamento estrito por Caixa Master Fechada (10 ou 20 PCS)');
+  // Nota: admin_password já inserida via INSERT OR IGNORE acima
 }
 
 export default db;

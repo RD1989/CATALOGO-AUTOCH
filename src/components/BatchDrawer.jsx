@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  Trash2, 
-  Plus, 
-  Minus, 
-  Send, 
-  Building2, 
-  User, 
-  Phone, 
-  MapPin, 
-  AlertCircle, 
+import {
+  X,
+  Trash2,
+  Plus,
+  Minus,
+  Send,
+  Building2,
+  User,
+  Phone,
+  MapPin,
+  AlertCircle,
   FileSpreadsheet,
   Boxes,
   CheckCircle2,
@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 
 const MINIMUM_ORDER_UNITS = 10;
-const STORE_WHATSAPP_NUMBER = '5511986807777';
 
 export default function BatchDrawer({
   isOpen,
@@ -30,16 +29,21 @@ export default function BatchDrawer({
   batchItems,
   onUpdateQty,
   onRemoveItem,
-  onAddToBatch
+  onAddToBatch,
+  whatsappNumber = '5511999999999'  // recebe do backend via App.jsx
 }) {
-  if (!isOpen) return null;
-
+  // ──────────────────────────────────────────────────────────────
+  // TODOS OS HOOKS DEVEM VIR ANTES DE QUALQUER RETURN CONDICIONAL
+  // ──────────────────────────────────────────────────────────────
   const [buyerName, setBuyerName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [cityState, setCityState] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Renderização condicional APÓS os hooks
+  if (!isOpen) return null;
 
   // Cálculos consolidados do lote
   const totalPieces = batchItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -76,7 +80,7 @@ export default function BatchDrawer({
     onUpdateQty(item.id, item.selectedColor, Math.max(1, pieces));
   };
 
-  // Enviar Cotação Comercial Formatada via WhatsApp (100% Compatível e Sem Caracteres Corrompidos)
+  // Enviar Cotação Comercial Formatada via WhatsApp
   const handleSendQuotation = (e) => {
     e.preventDefault();
     if (!isButtonEnabled) return;
@@ -85,17 +89,16 @@ export default function BatchDrawer({
 
     const linhaDivisoria = '--------------------------------------------------';
 
-    // Montagem da mensagem estruturada e padronizada para o WhatsApp
     let msg = `*SOLICITACAO DE COTACAO ATACADO — ATACADO TECH*\n`;
     msg += `${linhaDivisoria}\n\n`;
-    
+
     msg += `*DADOS DO COMPRADOR / REVENDA:*\n`;
     msg += `• *Responsavel:* ${buyerName.trim()}\n`;
     msg += `• *Empresa/Loja:* ${companyName.trim()}\n`;
     msg += `• *CNPJ/CPF:* ${cnpj.trim()}\n`;
     msg += `• *Destino (Cidade/UF):* ${cityState.trim()}\n`;
     msg += `• *WhatsApp:* ${buyerPhone.trim()}\n\n`;
-    
+
     msg += `${linhaDivisoria}\n`;
     msg += `*ITENS DO LOTE SELECIONADO:*\n\n`;
 
@@ -119,17 +122,17 @@ export default function BatchDrawer({
     msg += `*RESUMO FINANCEIRO DO PEDIDO:*\n`;
     msg += `• *Total de Pecas:* ${totalPieces} unidades\n`;
     msg += `• *Subtotal Tabela:* R$ ${grossTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
-    
+
     if (volumeDiscountPercent > 0) {
       msg += `• *Desconto por Volume (${volumeDiscountPercent}%):* - R$ ${discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
     }
-    
+
     msg += `• *VALOR TOTAL ESTIMADO:* *R$ ${netTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
     msg += `${linhaDivisoria}\n`;
     msg += `_Solicito confirmacao de estoque a pronta-entrega e dados para faturamento._`;
 
     const encoded = encodeURIComponent(msg);
-    const whatsappUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encoded}`;
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encoded}`;
 
     window.open(whatsappUrl, '_blank');
     setIsSubmitting(false);
@@ -137,11 +140,11 @@ export default function BatchDrawer({
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/80 backdrop-blur-xs flex justify-end animate-in fade-in duration-150">
-      <div 
+      <div
         className="w-full max-w-lg sm:max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        
+
         {/* Cabeçalho do Drawer */}
         <div className="p-4 sm:p-5 border-b-2 border-slate-200 flex items-center justify-between bg-slate-950 text-white">
           <div className="flex items-center gap-3">
@@ -158,7 +161,7 @@ export default function BatchDrawer({
             </div>
           </div>
 
-          <button 
+          <button
             type="button"
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
@@ -169,8 +172,8 @@ export default function BatchDrawer({
 
         {/* BARRA DE METAS DE PEDIDO MÍNIMO B2B (10 UNIDADES) */}
         <div className={`p-3.5 border-b-2 transition-colors ${
-          isMinimumReached 
-            ? 'bg-emerald-50 border-emerald-300 text-emerald-950' 
+          isMinimumReached
+            ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
             : 'bg-amber-50 border-amber-300 text-amber-950'
         }`}>
           <div className="flex items-center justify-between text-xs font-black mb-1.5">
@@ -194,7 +197,7 @@ export default function BatchDrawer({
 
           {/* Barra de Progresso */}
           <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-            <div 
+            <div
               className={`h-full transition-all duration-300 ${
                 isMinimumReached ? 'bg-emerald-500' : 'bg-amber-500'
               }`}
@@ -211,7 +214,7 @@ export default function BatchDrawer({
 
         {/* Lista de Itens do Lote */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-          
+
           {batchItems.length === 0 ? (
             <div className="text-center py-16 space-y-3">
               <div className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center mx-auto text-slate-500">
@@ -229,7 +232,7 @@ export default function BatchDrawer({
                 const itemSubtotal = item.price * item.quantity;
 
                 return (
-                  <div 
+                  <div
                     key={`${item.id}-${item.selectedColor}`}
                     className="bg-white border-2 border-slate-300 rounded-2xl p-4 shadow-sm space-y-3"
                   >
@@ -270,12 +273,12 @@ export default function BatchDrawer({
 
                     {/* CONTROLES FLEXÍVEIS */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t-2 border-slate-100 text-xs">
-                      
+
                       <div className="flex items-center gap-2.5">
                         <span className="font-black text-slate-700 uppercase tracking-wider text-[10px]">
                           Quantidade:
                         </span>
-                        
+
                         <div className="flex items-center bg-slate-100 border-2 border-slate-300 rounded-xl overflow-hidden shadow-2xs">
                           <button
                             type="button"
@@ -353,8 +356,8 @@ export default function BatchDrawer({
                   <span>Dados Obrigatórios do Cliente</span>
                 </h3>
                 <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
-                  isFormComplete 
-                    ? 'bg-emerald-100 text-emerald-950 border-emerald-300' 
+                  isFormComplete
+                    ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
                     : 'bg-rose-50 text-rose-600 border-rose-200'
                 }`}>
                   {isFormComplete ? '✓ Preenchimento Completo' : '* Todos obrigatórios'}
@@ -442,7 +445,7 @@ export default function BatchDrawer({
         {/* Rodapé com Totais & Botão com Trava de Validação */}
         {batchItems.length > 0 && (
           <div className="p-4 sm:p-5 border-t-2 border-slate-200 bg-white space-y-3">
-            
+
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-slate-600 font-bold">
                 <span>Subtotal Bruto ({totalPieces} peças):</span>
@@ -470,8 +473,8 @@ export default function BatchDrawer({
               onClick={handleSendQuotation}
               disabled={!isButtonEnabled || isSubmitting}
               className={`w-full text-sm sm:text-base font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all ${
-                isButtonEnabled 
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 cursor-pointer active:scale-[0.98]' 
+                isButtonEnabled
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 cursor-pointer active:scale-[0.98]'
                   : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-80 shadow-none'
               }`}
             >

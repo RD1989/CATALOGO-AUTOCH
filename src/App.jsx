@@ -9,11 +9,60 @@ import ProductDetailModal from './components/ProductDetailModal';
 import BatchDrawer from './components/BatchDrawer';
 import TrustBar from './components/TrustBar';
 import MobileBottomNav from './components/MobileBottomNav';
+import AdminPanel from './components/AdminPanel';
+import AdminLoginModal from './components/AdminLoginModal';
 
 import { PRODUCTS, CATEGORIES } from './data/products';
+import { api } from './services/api';
 
 export default function App() {
+  const [currentView, setCurrentView] = useState('catalog'); // 'catalog' | 'admin'
+  const [isServerOnline, setIsServerOnline] = useState(false);
   const [productsList, setProductsList] = useState(PRODUCTS);
+
+  // Settings do backend (WhatsApp, data da tabela)
+  const [settings, setSettings] = useState({
+    company_whatsapp: '5511999999999',
+    current_table_date: 'Agosto / 2026'
+  });
+
+  // Autenticação do painel admin
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    // Verifica se já existe uma sessão ativa
+    return !!sessionStorage.getItem('admin_token');
+  });
+
+  // Sincronização com o Backend SQLite em Tempo Real
+  useEffect(() => {
+    async function loadLiveData() {
+      try {
+        const health = await api.checkHealth();
+        if (health && health.status === 'healthy') {
+          setIsServerOnline(true);
+
+          // Carregar produtos e settings em paralelo
+          const [liveProducts, liveSettings] = await Promise.all([
+            api.getProducts(),
+            api.getSettings()
+          ]);
+
+          if (liveProducts && liveProducts.length > 0) {
+            setProductsList(liveProducts);
+          }
+          if (liveSettings) {
+            setSettings(prev => ({ ...prev, ...liveSettings }));
+          }
+        } else {
+          setIsServerOnline(false);
+        }
+      } catch (err) {
+        console.warn('Backend offline, operando em modo catálogo local.');
+        setIsServerOnline(false);
+      }
+    }
+    loadLiveData();
+  }, []);
 
   // Estados de Filtros e Visualização
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -54,10 +103,45 @@ export default function App() {
 
   const searchInputRef = useRef(null);
 
-  // Adicionar ao Lote (Por Unidade ou Caixa)
+  // Abrir Admin — protegido por autenticação
+  const handleOpenAdmin = () => {
+    if (isAdminAuthenticated) {
+      setCurrentView('admin');
+    } else {
+      setShowAdminLogin(true);
+    }
+  };
+
+  const handleAdminLoginSuccess = (token) => {
+    setIsAdminAuthenticated(true);
+    setShowAdminLogin(false);
+    setCurrentView('admin');
+  };
+
+  // Abrir Detalhes com Rastreamento de Telemetria
+  const handleOpenQuickView = (product) => {
+    setQuickViewProduct(product);
+    if (product) {
+      api.trackEvent('product_view', {
+        productId: product.id,
+        sku: product.sku,
+        category: product.category,
+        metadata: { name: product.name, price: product.price }
+      });
+    }
+  };
+
+  // Adicionar ao Lote (Por Unidade ou Caixa) com Telemetria
   const handleAddToBatch = (product, selectedColor, quantityToAdd = 1) => {
     const color = selectedColor || product.colors?.[0]?.name || 'Padrão';
     const qty = Math.max(1, parseInt(quantityToAdd) || 1);
+
+    api.trackEvent('add_to_batch', {
+      productId: product.id,
+      sku: product.sku,
+      category: product.category,
+      metadata: { name: product.name, quantity: qty, color }
+    });
 
     setBatchItems(prev => {
       const existingIndex = prev.findIndex(item => item.id === product.id && item.selectedColor === color);
@@ -66,11 +150,7 @@ export default function App() {
         updated[existingIndex].quantity += qty;
         return updated;
       } else {
-        return [...prev, {
-          ...product,
-          selectedColor: color,
-          quantity: qty
-        }];
+        return [...prev, { ...product, selectedColor: color, quantity: qty }];
       }
     });
   };
@@ -104,35 +184,45 @@ export default function App() {
     setSelectedCategory('all');
   };
 
-  // Filtragem dos Produtos em Tempo Real
+  // Filtragem dos Produtos em Tempo Real — todos os filtros conectados
   const filteredProducts = useMemo(() => {
     return productsList.filter(product => {
-      if (selectedCategory !== 'all' && product.category !== selectedCategory) {
-        return false;
-      }
+      // Categoria
+      if (selectedCategory !== 'all' && product.category !== selectedCategory) return false;
 
+      // Busca por texto
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = product.name.toLowerCase().includes(q);
         const matchSku = product.sku.toLowerCase().includes(q);
-        const matchSpecs = Object.values(product.specs || {}).some(val => 
+        const matchSpecs = Object.values(product.specs || {}).some(val =>
           String(val).toLowerCase().includes(q)
         );
         if (!matchName && !matchSku && !matchSpecs) return false;
       }
 
-      if (product.price < priceRange[0] || product.price > priceRange[1]) {
-        return false;
-      }
+      // Faixa de preço
+      if (product.price < priceRange[0] || product.price > priceRange[1]) return false;
 
-      if (networkFilter.length > 0 && !networkFilter.includes(product.network)) {
-        return false;
-      }
+      // Conectividade / Rede
+      if (networkFilter.length > 0 && !networkFilter.includes(product.network)) return false;
 
+      // Cor
       if (colorFilter.length > 0) {
         const productColors = product.colors?.map(c => c.name) || [];
-        const hasColor = colorFilter.some(c => productColors.includes(c));
-        if (!hasColor) return false;
+        if (!colorFilter.some(c => productColors.includes(c))) return false;
+      }
+
+      // Status de estoque
+      if (stockFilter !== 'all' && product.status !== stockFilter) return false;
+
+      // Condição (Lançamento, Mais vendidos, Promoção)
+      if (conditionFilter.length > 0 && !conditionFilter.includes(product.condition)) return false;
+
+      // Tamanho mínimo do lote
+      if (minBatchFilter.length > 0) {
+        const batchStr = String(product.minBatchQty || 10);
+        if (!minBatchFilter.some(f => String(f) === batchStr)) return false;
       }
 
       return true;
@@ -140,27 +230,47 @@ export default function App() {
       if (sortBy === 'menor-preco') return a.price - b.price;
       if (sortBy === 'maior-preco') return b.price - a.price;
       if (sortBy === 'lancamentos') return a.condition === 'Lançamento' ? -1 : 1;
+      if (sortBy === 'mais-vendidos') {
+        const aAdds = a.quoteAddsCount || a.quote_adds_count || 0;
+        const bAdds = b.quoteAddsCount || b.quote_adds_count || 0;
+        return bAdds - aAdds;
+      }
       return 0;
     });
   }, [
-    productsList, 
-    selectedCategory, 
-    searchQuery, 
-    priceRange, 
-    networkFilter, 
-    colorFilter, 
-    sortBy
+    productsList, selectedCategory, searchQuery, priceRange,
+    networkFilter, colorFilter, sortBy, stockFilter, conditionFilter, minBatchFilter
   ]);
 
   // Contadores
   const totalUnits = batchItems.reduce((acc, item) => acc + item.quantity, 0);
   const batchCount = batchItems.length;
   const batchTotal = batchItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const activeFilterCount = (networkFilter.length) + (colorFilter.length) + (searchQuery ? 1 : 0);
+
+  // Contagem real de todos os filtros ativos
+  const activeFilterCount =
+    networkFilter.length +
+    colorFilter.length +
+    (searchQuery ? 1 : 0) +
+    (stockFilter !== 'all' ? 1 : 0) +
+    (conditionFilter.length > 0 ? 1 : 0) +
+    (minBatchFilter.length > 0 ? 1 : 0) +
+    (priceRange[0] > 0 || priceRange[1] < 1000 ? 1 : 0);
+
+  // Se o usuário alternou para o Painel Administrativo
+  if (currentView === 'admin') {
+    return (
+      <AdminPanel
+        products={productsList}
+        onUpdateProducts={setProductsList}
+        onBackToCatalog={() => setCurrentView('catalog')}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans selection:bg-blue-600 selection:text-white">
-      
+
       {/* Cabeçalho do Catálogo Oficial */}
       <Header
         batchCount={batchCount}
@@ -174,11 +284,15 @@ export default function App() {
         onOpenMobileFilters={() => setIsMobileFiltersOpen(true)}
         activeFilterCount={activeFilterCount}
         searchInputRef={searchInputRef}
+        onOpenAdmin={handleOpenAdmin}
+        isServerOnline={isServerOnline}
+        products={productsList}
+        tableDate={settings.current_table_date}
       />
 
       {/* Área Principal do Catálogo */}
       <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-8 py-6 sm:py-8">
-        
+
         {/* Banner Hero Comercial */}
         <HeroSection
           categories={CATEGORIES}
@@ -193,7 +307,7 @@ export default function App() {
 
         {/* Estrutura: Filtros Laterais + Portfólio de Produtos */}
         <div className="flex items-start gap-6 lg:gap-8">
-          
+
           {/* Sidebar de Filtros */}
           <SidebarFilters
             priceRange={priceRange}
@@ -216,7 +330,7 @@ export default function App() {
 
           {/* Listagem de Produtos (Grade ou Tabela) */}
           <div className="flex-1 min-w-0">
-            
+
             {filteredProducts.length === 0 ? (
               <div className="bg-white border-2 border-slate-300 rounded-3xl p-12 text-center space-y-4">
                 <div className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center mx-auto text-slate-500 font-black text-2xl">
@@ -224,7 +338,7 @@ export default function App() {
                 </div>
                 <h3 className="text-lg font-black text-slate-950">Nenhum produto encontrado com os filtros atuais</h3>
                 <p className="text-xs text-slate-600 font-bold max-w-sm mx-auto">
-                  Tente limpar os filtros de preço ou categoria para ver todos os 10 modelos disponíveis.
+                  Tente limpar os filtros para ver todos os {productsList.length} modelos disponíveis.
                 </p>
                 <button
                   type="button"
@@ -241,7 +355,7 @@ export default function App() {
                     key={product.id}
                     product={product}
                     onAddToBatch={handleAddToBatch}
-                    onQuickView={setQuickViewProduct}
+                    onQuickView={handleOpenQuickView}
                   />
                 ))}
               </div>
@@ -249,7 +363,7 @@ export default function App() {
               <ProductTableList
                 products={filteredProducts}
                 onAddToBatch={handleAddToBatch}
-                onQuickView={setQuickViewProduct}
+                onQuickView={handleOpenQuickView}
               />
             )}
 
@@ -275,6 +389,13 @@ export default function App() {
         currentCategory={selectedCategory}
       />
 
+      {/* Modal de Login do Admin */}
+      <AdminLoginModal
+        isOpen={showAdminLogin}
+        onClose={() => setShowAdminLogin(false)}
+        onLoginSuccess={handleAdminLoginSuccess}
+      />
+
       {/* Modal Quadrado de Detalhes / Ficha Técnica */}
       {quickViewProduct && (
         <ProductDetailModal
@@ -292,6 +413,7 @@ export default function App() {
         onUpdateQty={handleUpdateBatchQty}
         onRemoveItem={handleRemoveBatchItem}
         onAddToBatch={handleAddToBatch}
+        whatsappNumber={settings.company_whatsapp}
       />
 
     </div>

@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
+    "dev:all": "node -e \"const { spawn } = require('child_process'); spawn('node', ['server/index.js'], { stdio: 'inherit', shell: true }); spawn('npx', ['vite'], { stdio: 'inherit', shell: true });\"",
+    "server": "node server/index.js",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -13,15 +15,18 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.34.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "sharp": "^0.35.3",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

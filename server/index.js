@@ -1,12 +1,181 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import db from './db.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'atacadotech-jwt-secret-hardened-key-2026';
+const JWT_EXPIRES_IN = '8h';
 
-app.use(cors());
-app.use(express.json());
+// ── Rate Limiting Ingress Protection (RULE-API-003 & ByteByteGo p. 65) ────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // Máximo 10 tentativas por IP
+  message: { error: 'Muitas tentativas de login. Por favor, tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const quotesLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 40, // Máximo 40 cotações por IP
+  message: { error: 'Limite de requisições de cotação atingido. Tente novamente mais tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const analyticsLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 300, // Máximo 300 telemetrias por minuto
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// ── CORS restrito a origens localhost ────────────────────────────────────────
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permite requisições sem origin (mesmo domínio, Postman, curl)
+    if (!origin) return callback(null, true);
+    // Permite qualquer localhost (qualquer porta)
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    callback(new Error('Origem não permitida pelo CORS'));
+  }
+}));
+
+app.use(express.json({ limit: '10mb' }));
+
+// ── Middleware de Autenticação JWT Stateless (RULE-SEC-002 & RULE-SCALE-001) ──
+const requireAuth = (req, res, next) => {
+  const token = req.headers['x-admin-token'] || req.query.token;
+  if (!token) {
+    return res.status(401).json({ error: 'Não autorizado. Token de acesso ausente.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Sessão expirada. Faça login novamente no painel.' });
+    }
+    return res.status(401).json({ error: 'Token de autenticação inválido.' });
+  }
+};
+
+// ── Helper para escapar strings em SQL gerado (RULE-SEC-001) ─────────────────
+const escapeForSql = (val) => {
+  if (val === null || val === undefined) return 'NULL';
+  return "'" + String(val)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\x00/g, '\\0')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\x1a/g, '\\Z') + "'";
+};
+
+// ── Health check ─────────────────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  try {
+    const productCount = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
+    res.json({
+      status: 'healthy',
+      database: 'connected',
+      productsCount: productCount,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'unhealthy', error: err.message });
+  }
+});
+
+// ── Autenticação Admin com Bcrypt & JWT (RULE-SEC-002) ────────────────────────
+app.post('/api/auth/login', authLimiter, (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: 'Senha não informada.' });
+
+    const stored = db.prepare("SELECT value FROM settings WHERE key = 'admin_password'").get();
+    if (!stored || !stored.value) {
+      return res.status(500).json({ error: 'Configuração de autenticação não inicializada.' });
+    }
+
+    let isPasswordValid = false;
+    if (stored.value.startsWith('$2a$') || stored.value.startsWith('$2b$')) {
+      isPasswordValid = bcrypt.compareSync(password, stored.value);
+    } else {
+      // Migração automática caso a senha ainda esteja em texto plano
+      isPasswordValid = (password === stored.value);
+      if (isPasswordValid) {
+        const hashed = bcrypt.hashSync(password, 10);
+        db.prepare("UPDATE settings SET value = ? WHERE key = 'admin_password'").run(hashed);
+      }
+    }
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Senha incorreta. Tente novamente.' });
+    }
+
+    // Emissão de JWT Stateless assinado (ByteByteGo p. 51, 166)
+    const token = jwt.sign(
+      { role: 'admin', sub: 'admin-master' },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    res.json({ token, message: 'Login realizado com sucesso.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/logout', requireAuth, (req, res) => {
+  res.json({ success: true, message: 'Logout realizado.' });
+});
+
+// ── Configurações do sistema ─────────────────────────────────────────────────
+app.get('/api/settings', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT key, value FROM settings').all();
+    const settings = {};
+    for (const row of rows) {
+      if (row.key !== 'admin_password') {
+        settings[row.key] = row.value;
+      }
+    }
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Atualizar uma setting (protegido, com auto-hash se for senha)
+app.put('/api/settings/:key', requireAuth, (req, res) => {
+  try {
+    const { value } = req.body;
+    if (value === undefined) return res.status(400).json({ error: 'Valor não informado.' });
+
+    let finalValue = value;
+    if (req.params.key === 'admin_password') {
+      finalValue = bcrypt.hashSync(String(value), 10);
+    }
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Helper para formatar produto para o frontend
 const formatProduct = (p) => ({
@@ -34,11 +203,11 @@ const formatProduct = (p) => ({
   updatedAt: p.updated_at
 });
 
-// ==========================================
+// ══════════════════════════════════════════════════════════
 // 1. PRODUTOS & CATÁLOGO (CRUD EM TEMPO REAL)
-// ==========================================
+// ══════════════════════════════════════════════════════════
 
-// Listar todos os produtos
+// Listar todos os produtos (público)
 app.get('/api/products', (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM products ORDER BY price ASC').all();
@@ -48,7 +217,7 @@ app.get('/api/products', (req, res) => {
   }
 });
 
-// Obter produto por ID
+// Obter produto por ID (público)
 app.get('/api/products/:id', (req, res) => {
   try {
     const p = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
@@ -59,10 +228,25 @@ app.get('/api/products/:id', (req, res) => {
   }
 });
 
-// Criar novo produto
-app.post('/api/products', (req, res) => {
+// Criar novo produto (protegido)
+app.post('/api/products', requireAuth, (req, res) => {
   try {
     const p = req.body;
+
+    // Validação de campos obrigatórios
+    if (!p.sku || !p.name || !p.category) {
+      return res.status(400).json({ error: 'Campos obrigatórios ausentes: sku, name, category.' });
+    }
+    if (typeof p.price !== 'number' || p.price <= 0) {
+      return res.status(400).json({ error: 'O campo price deve ser um número positivo.' });
+    }
+    if (p.stockQty !== undefined && (typeof p.stockQty !== 'number' || p.stockQty < 0)) {
+      return res.status(400).json({ error: 'O campo stockQty deve ser um número não negativo.' });
+    }
+    if (p.minBatchQty !== undefined && (typeof p.minBatchQty !== 'number' || p.minBatchQty < 1)) {
+      return res.status(400).json({ error: 'O campo minBatchQty deve ser um número >= 1.' });
+    }
+
     const id = p.id || `prod-${Date.now()}`;
     const stmt = db.prepare(`
       INSERT INTO products (
@@ -99,10 +283,15 @@ app.post('/api/products', (req, res) => {
   }
 });
 
-// Atualizar produto existente
-app.put('/api/products/:id', (req, res) => {
+// Atualizar produto existente (protegido)
+app.put('/api/products/:id', requireAuth, (req, res) => {
   try {
     const p = req.body;
+
+    if (p.price !== undefined && (typeof p.price !== 'number' || p.price <= 0)) {
+      return res.status(400).json({ error: 'O campo price deve ser um número positivo.' });
+    }
+
     const stmt = db.prepare(`
       UPDATE products SET
         sku = ?,
@@ -126,18 +315,9 @@ app.put('/api/products/:id', (req, res) => {
     `);
 
     const result = stmt.run(
-      p.sku,
-      p.name,
-      p.category,
-      p.categoryName,
-      p.price,
-      p.minBatchQty,
-      p.condition,
-      p.network,
-      p.status,
-      p.statusLabel,
-      p.stockQty,
-      p.image,
+      p.sku, p.name, p.category, p.categoryName,
+      p.price, p.minBatchQty, p.condition, p.network,
+      p.status, p.statusLabel, p.stockQty, p.image,
       JSON.stringify(p.colors || []),
       JSON.stringify(p.badges || []),
       JSON.stringify(p.specs || {}),
@@ -153,8 +333,8 @@ app.put('/api/products/:id', (req, res) => {
   }
 });
 
-// Excluir produto
-app.delete('/api/products/:id', (req, res) => {
+// Excluir produto (protegido)
+app.delete('/api/products/:id', requireAuth, (req, res) => {
   try {
     const result = db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: 'Produto não encontrado' });
@@ -164,19 +344,19 @@ app.delete('/api/products/:id', (req, res) => {
   }
 });
 
-// Reajuste de Preços em Massa (%)
-app.post('/api/products/adjust-prices', (req, res) => {
+// Reajuste de Preços em Massa (%) — protegido
+app.post('/api/admin/adjust-prices', requireAuth, (req, res) => {
   try {
-    const { percent, category } = req.body; // ex: percent = 5.5 (+5.5%) ou -3 (-3%)
+    const { percent, category } = req.body;
+    if (typeof percent !== 'number') {
+      return res.status(400).json({ error: 'O campo percent deve ser um número.' });
+    }
     const multiplier = 1 + (percent / 100);
 
-    let stmt;
     if (category && category !== 'all') {
-      stmt = db.prepare('UPDATE products SET price = ROUND(price * ?, 2), updated_at = CURRENT_TIMESTAMP WHERE category = ?');
-      stmt.run(multiplier, category);
+      db.prepare('UPDATE products SET price = ROUND(price * ?, 2), updated_at = CURRENT_TIMESTAMP WHERE category = ?').run(multiplier, category);
     } else {
-      stmt = db.prepare('UPDATE products SET price = ROUND(price * ?, 2), updated_at = CURRENT_TIMESTAMP');
-      stmt.run(multiplier);
+      db.prepare('UPDATE products SET price = ROUND(price * ?, 2), updated_at = CURRENT_TIMESTAMP').run(multiplier);
     }
 
     const rows = db.prepare('SELECT * FROM products ORDER BY price ASC').all();
@@ -186,12 +366,12 @@ app.post('/api/products/adjust-prices', (req, res) => {
   }
 });
 
-// ==========================================
+// ══════════════════════════════════════════════════════════
 // 2. COTAÇÕES & PEDIDOS B2B
-// ==========================================
+// ══════════════════════════════════════════════════════════
 
-// Listar cotações
-app.get('/api/quotes', (req, res) => {
+// Listar cotações (protegido)
+app.get('/api/quotes', requireAuth, (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM quotes ORDER BY created_at DESC').all();
     const formatted = rows.map(q => ({
@@ -217,23 +397,20 @@ app.get('/api/quotes', (req, res) => {
   }
 });
 
-// Criar nova cotação / pedido
-app.post('/api/quotes', (req, res) => {
+// Criar nova cotação / pedido (público — clientes B2B enviam pelo BatchDrawer com rate limit)
+app.post('/api/quotes', quotesLimiter, (req, res) => {
   try {
     const q = req.body;
     const id = `cot-${Date.now()}`;
     const quoteCode = `COT-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const stmt = db.prepare(`
+    db.prepare(`
       INSERT INTO quotes (
         id, quote_code, buyer_name, company, cnpj, phone, city, state,
         items_json, total_boxes, total_units, total_value, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      id,
-      quoteCode,
+    `).run(
+      id, quoteCode,
       q.buyerName || 'Comprador B2B',
       q.company || 'Loja Revendedora',
       q.cnpj || '',
@@ -247,7 +424,6 @@ app.post('/api/quotes', (req, res) => {
       'Pendente'
     );
 
-    // Registrar evento de telemetria
     db.prepare(`
       INSERT INTO analytics_events (event_type, metadata_json)
       VALUES ('quote_created', ?)
@@ -259,12 +435,11 @@ app.post('/api/quotes', (req, res) => {
   }
 });
 
-// Atualizar status da cotação (com opção de dar baixa no estoque)
-app.put('/api/quotes/:id/status', (req, res) => {
+// Atualizar status da cotação (protegido)
+app.put('/api/quotes/:id/status', requireAuth, (req, res) => {
   try {
     const { status, deductStock } = req.body;
-    const stmt = db.prepare('UPDATE quotes SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-    stmt.run(status, req.params.id);
+    db.prepare('UPDATE quotes SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, req.params.id);
 
     if (deductStock && status === 'Faturado') {
       const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
@@ -284,12 +459,12 @@ app.put('/api/quotes/:id/status', (req, res) => {
   }
 });
 
-// ==========================================
+// ══════════════════════════════════════════════════════════
 // 3. CLIENTES & REVENDEDORES B2B
-// ==========================================
+// ══════════════════════════════════════════════════════════
 
-// Listar clientes
-app.get('/api/customers', (req, res) => {
+// Listar clientes (protegido)
+app.get('/api/customers', requireAuth, (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM customers ORDER BY total_spent DESC').all();
     res.json(rows);
@@ -298,17 +473,16 @@ app.get('/api/customers', (req, res) => {
   }
 });
 
-// Criar cliente
-app.post('/api/customers', (req, res) => {
+// Criar cliente (protegido)
+app.post('/api/customers', requireAuth, (req, res) => {
   try {
     const c = req.body;
     const id = `cli-${Date.now()}`;
-    const stmt = db.prepare(`
+    db.prepare(`
       INSERT INTO customers (id, name, company, cnpj, phone, city, state, level, total_orders, total_spent, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0.0, 'Ativo')
-    `);
+    `).run(id, c.name, c.company, c.cnpj, c.phone, c.city || 'São Paulo', c.state || 'SP', c.level || 'Prata');
 
-    stmt.run(id, c.name, c.company, c.cnpj, c.phone, c.city || 'São Paulo', c.state || 'SP', c.level || 'Prata');
     const created = db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
     res.status(201).json(created);
   } catch (err) {
@@ -316,27 +490,23 @@ app.post('/api/customers', (req, res) => {
   }
 });
 
-// ==========================================
+// ══════════════════════════════════════════════════════════
 // 4. TELEMETRIA & MÉTRICAS REAIS DO NEGÓCIO
-// ==========================================
+// ══════════════════════════════════════════════════════════
 
-// Registrar evento de acesso / visualização em tempo real
-app.post('/api/analytics/track', (req, res) => {
+// Registrar evento (público — gerado pelo catálogo com rate limit)
+app.post('/api/analytics/track', analyticsLimiter, (req, res) => {
   try {
     const { eventType, productId, sku, category, metadata } = req.body;
-    
-    // Grava o evento na tabela de analytics
+
     db.prepare(`
       INSERT INTO analytics_events (event_type, product_id, sku, category, metadata_json)
       VALUES (?, ?, ?, ?, ?)
     `).run(eventType, productId || null, sku || null, category || null, JSON.stringify(metadata || {}));
 
-    // Se for visualização de produto, incrementa views_count no produto
     if (eventType === 'product_view' && productId) {
       db.prepare('UPDATE products SET views_count = views_count + 1 WHERE id = ?').run(productId);
     }
-
-    // Se for adição ao lote, incrementa quote_adds_count
     if (eventType === 'add_to_batch' && productId) {
       db.prepare('UPDATE products SET quote_adds_count = quote_adds_count + 1 WHERE id = ?').run(productId);
     }
@@ -347,16 +517,16 @@ app.post('/api/analytics/track', (req, res) => {
   }
 });
 
-// Obter Métricas Agregadas Reais
-app.get('/api/analytics', (req, res) => {
+// Obter Métricas Agregadas (protegido)
+app.get('/api/analytics', requireAuth, (req, res) => {
   try {
     const totalViews = db.prepare('SELECT SUM(views_count) as total FROM products').get().total || 0;
     const totalAdds = db.prepare('SELECT SUM(quote_adds_count) as total FROM products').get().total || 0;
     const totalStock = db.prepare('SELECT SUM(stock_qty) as total FROM products').get().total || 0;
     const totalStockValue = db.prepare('SELECT SUM(price * stock_qty) as total FROM products').get().total || 0;
-    
+
     const quotesStats = db.prepare(`
-      SELECT 
+      SELECT
         COUNT(*) as total_quotes,
         SUM(total_value) as total_faturado,
         AVG(total_value) as ticket_medio,
@@ -365,48 +535,32 @@ app.get('/api/analytics', (req, res) => {
       FROM quotes
     `).get();
 
-    // Ranking real dos produtos mais visualizados / com maior interesse
     const topProducts = db.prepare(`
       SELECT id, sku, name, category_name, price, views_count, quote_adds_count, stock_qty
-      FROM products
-      ORDER BY views_count DESC
-      LIMIT 5
+      FROM products ORDER BY views_count DESC LIMIT 5
     `).all();
 
-    // Distribuição de estoque por categoria
     const categoryStats = db.prepare(`
-      SELECT 
-        category_name,
-        COUNT(*) as total_modelos,
-        SUM(stock_qty) as total_pecas,
-        SUM(price * stock_qty) as valor_categoria
-      FROM products
-      GROUP BY category_name
+      SELECT category_name, COUNT(*) as total_modelos, SUM(stock_qty) as total_pecas, SUM(price * stock_qty) as valor_categoria
+      FROM products GROUP BY category_name
     `).all();
 
     res.json({
-      totalViews,
-      totalAdds,
+      totalViews, totalAdds,
       conversionRate: totalViews > 0 ? ((totalAdds / totalViews) * 100).toFixed(1) + '%' : '0%',
-      totalStock,
-      totalStockValue,
-      quotesStats,
-      topProducts,
-      categoryStats
+      totalStock, totalStockValue, quotesStats, topProducts, categoryStats
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ==========================================
-// 5. EXPORTADOR MySQL 8 / HOSPEDAGEM COMPARTILHADA
-// ==========================================
-app.get('/api/export/mysql', (req, res) => {
+// ══════════════════════════════════════════════════════════
+// 5. EXPORTADOR MySQL 8 (protegido)
+// ══════════════════════════════════════════════════════════
+app.get('/api/export/mysql', requireAuth, (req, res) => {
   try {
     const products = db.prepare('SELECT * FROM products').all();
-    const customers = db.prepare('SELECT * FROM customers').all();
-    const quotes = db.prepare('SELECT * FROM quotes').all();
 
     let sql = `-- ========================================================\n`;
     sql += `-- BANCO DE DADOS OFICIAL ATACADO TECH (MySQL 8 / MariaDB)\n`;
@@ -415,7 +569,6 @@ app.get('/api/export/mysql', (req, res) => {
     sql += `-- ========================================================\n\n`;
     sql += `SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n`;
 
-    // Tabela products
     sql += `DROP TABLE IF EXISTS \`products\`;\n`;
     sql += `CREATE TABLE \`products\` (\n`;
     sql += `  \`id\` varchar(64) NOT NULL,\n`;
@@ -441,29 +594,28 @@ app.get('/api/export/mysql', (req, res) => {
     sql += `  PRIMARY KEY (\`id\`)\n`;
     sql += `) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n\n`;
 
-    // Inserts products
     for (const p of products) {
       sql += `INSERT INTO \`products\` VALUES (${[
-        `'${p.id}'`,
-        `'${p.sku}'`,
-        `'${p.name.replace(/'/g, "\\'")}'`,
-        `'${p.category}'`,
-        `'${p.category_name.replace(/'/g, "\\'")}'`,
+        escapeForSql(p.id),
+        escapeForSql(p.sku),
+        escapeForSql(p.name),
+        escapeForSql(p.category),
+        escapeForSql(p.category_name),
         p.price,
         p.min_batch_qty,
-        `'${p.condition}'`,
-        `'${p.network}'`,
-        `'${p.status}'`,
-        `'${p.status_label.replace(/'/g, "\\'")}'`,
+        escapeForSql(p.condition),
+        escapeForSql(p.network),
+        escapeForSql(p.status),
+        escapeForSql(p.status_label),
         p.stock_qty,
-        `'${p.image}'`,
-        `'${p.colors_json.replace(/'/g, "\\'")}'`,
-        `'${p.badges_json.replace(/'/g, "\\'")}'`,
-        `'${p.specs_json.replace(/'/g, "\\'")}'`,
-        `'${p.bullet_points_json.replace(/'/g, "\\'")}'`,
+        escapeForSql(p.image),
+        escapeForSql(p.colors_json),
+        escapeForSql(p.badges_json),
+        escapeForSql(p.specs_json),
+        escapeForSql(p.bullet_points_json),
         p.views_count,
         p.quote_adds_count,
-        `'${p.created_at}'`
+        escapeForSql(p.created_at)
       ].join(', ')});\n`;
     }
 
@@ -475,8 +627,81 @@ app.get('/api/export/mysql', (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════
+// 6. EXPORTADOR CSV (protegido)
+// ══════════════════════════════════════════════════════════
+app.get('/api/export/csv', requireAuth, (req, res) => {
+  try {
+    const type = req.query.type || 'products';
+    let csv = '';
+
+    if (type === 'products') {
+      const products = db.prepare('SELECT * FROM products ORDER BY price ASC').all();
+      csv = 'ID;SKU;Nome;Categoria;Preco_Unitario;Caixa_Master_Qtd;Total_Caixa;Estoque_Pecas;Status;Conectividade\n';
+      for (const p of products) {
+        const boxTotal = (p.price * p.min_batch_qty).toFixed(2);
+        csv += `"${p.id}";"${p.sku}";"${p.name.replace(/"/g, '""')}";"${p.category_name}";"${p.price.toFixed(2)}";"${p.min_batch_qty}";"${boxTotal}";"${p.stock_qty}";"${p.status_label}";"${p.network}"\n`;
+      }
+      res.setHeader('Content-Disposition', 'attachment; filename="produtos_atacadotech.csv"');
+    } else if (type === 'quotes') {
+      const quotes = db.prepare('SELECT * FROM quotes ORDER BY created_at DESC').all();
+      csv = 'Codigo;Data;Comprador;Empresa;CNPJ;Telefone;Cidade_UF;Total_Caixas;Total_Pecas;Valor_Total;Status\n';
+      for (const q of quotes) {
+        csv += `"${q.quote_code}";"${q.created_at}";"${q.buyer_name}";"${q.company}";"${q.cnpj || ''}";"${q.phone}";"${q.city || ''}/${q.state || ''}";"${q.total_boxes}";"${q.total_units}";"${q.total_value.toFixed(2)}";"${q.status}"\n`;
+      }
+      res.setHeader('Content-Disposition', 'attachment; filename="pedidos_atacadotech.csv"');
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.send('\uFEFF' + csv); // BOM para Excel reconhecer acentos
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// 7. UPLOAD DE FOTOS (protegido)
+// ══════════════════════════════════════════════════════════
+app.post('/api/upload', requireAuth, (req, res) => {
+  try {
+    const { imageBase64, filename } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'Nenhuma imagem enviada' });
+    }
+
+    const matches = imageBase64.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.json({ url: imageBase64 }); // fallback: retorna a própria dataUrl
+    }
+
+    const ext = matches[1].split('/')[1] || 'jpg';
+    const cleanExt = ext === 'jpeg' ? 'jpg' : ext;
+    const baseName = (filename || `prod-${Date.now()}`).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    const targetFileName = `${baseName}.${cleanExt}`;
+
+    const publicDir = path.join(__dirname, '..', 'public', 'images', 'products');
+    if (!fs.existsSync(publicDir)) {
+      fs.mkdirSync(publicDir, { recursive: true });
+    }
+
+    const filePath = path.join(publicDir, targetFileName);
+    const buffer = Buffer.from(matches[2], 'base64');
+    fs.writeFileSync(filePath, buffer);
+
+    res.json({
+      success: true,
+      url: `/images/products/${targetFileName}`,
+      message: 'Foto gravada com sucesso no diretório de produtos'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Iniciar Servidor Backend
 app.listen(PORT, () => {
-  console.log(`✓ Servidor Backend Atacado Tech rodando na porta http://localhost:${PORT}`);
+  console.log(`✓ Servidor Backend Atacado Tech rodando em http://localhost:${PORT}`);
   console.log(`✓ Banco de dados SQLite persistido e sincronizado.`);
+  console.log(`✓ CORS restrito a origens localhost.`);
+  console.log(`✓ Autenticação admin ativa (POST /api/auth/login).`);
 });
