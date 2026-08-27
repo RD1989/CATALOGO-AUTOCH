@@ -304,9 +304,9 @@ export default function AdminPanel({
       {/* Estrutura Principal: Sidebar + Conteúdo */}
       <div className="flex-1 max-w-[1720px] w-full mx-auto flex">
         
-        {/* Sidebar Lateral */}
+        {/* Sidebar Lateral Fixo / Sticky */}
         <aside className={`
-          fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r-2 border-slate-300 flex flex-col justify-between p-4 sm:p-5 transition-transform duration-200 shadow-sm
+          fixed lg:sticky top-0 lg:top-[72px] lg:h-[calc(100vh-72px)] lg:overflow-y-auto w-72 shrink-0 bg-white border-r-2 border-slate-300 flex flex-col justify-between p-4 sm:p-5 z-40 transition-transform duration-200 shadow-sm
           ${isSidebarOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>
           <div className="space-y-6">

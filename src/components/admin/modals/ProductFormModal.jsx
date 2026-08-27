@@ -138,11 +138,11 @@ export default function ProductFormModal({
       onClick={onClose}
     >
       <div 
-        className="bg-white border-2 border-slate-300 rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl my-auto animate-in zoom-in-95 duration-150 flex flex-col"
+        className="bg-white border-2 border-slate-300 rounded-3xl max-w-4xl w-full max-h-[92vh] overflow-hidden shadow-2xl my-auto animate-in zoom-in-95 duration-150 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header do Modal */}
-        <div className="p-4 sm:p-5 border-b-2 border-slate-200 flex items-center justify-between bg-slate-950 text-white">
+        <div className="p-4 sm:p-5 border-b-2 border-slate-200 flex items-center justify-between bg-slate-950 text-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-md">
               <Package className="w-5 h-5" />
@@ -166,7 +166,7 @@ export default function ProductFormModal({
         </div>
 
         {/* Barra de Navegação por Abas */}
-        <div className="flex border-b-2 border-slate-200 bg-slate-100 px-4 sm:px-6 pt-2 gap-2 overflow-x-auto">
+        <div className="flex border-b-2 border-slate-200 bg-slate-100 px-4 sm:px-6 pt-2 gap-2 overflow-x-auto shrink-0">
           {[
             { id: 'geral', label: '1. Dados Gerais', icon: Layers },
             { id: 'midia', label: '2. Foto & Cores', icon: Palette },
@@ -193,8 +193,8 @@ export default function ProductFormModal({
         </div>
 
         {/* Formulário Principal com Conteúdo por Aba */}
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between">
-          <div className="p-5 sm:p-7 max-h-[65vh] overflow-y-auto space-y-5">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between overflow-hidden min-h-0">
+          <div className="p-5 sm:p-7 flex-1 overflow-y-auto space-y-5">
             
             {/* ABA 1: DADOS GERAIS */}
             {activeTab === 'geral' && (
